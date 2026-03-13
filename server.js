@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from "./src/routes/auth.routes.js";
+import businessRoutes from "./src/routes/business.routes.js";
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/business', businessRoutes);
 
 app.get('/', (req, res) => {
   res.send('API running...');

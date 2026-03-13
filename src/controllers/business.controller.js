@@ -1,0 +1,165 @@
+import prisma from "../lib/prisma.js";
+import twilio from "twilio";
+import FormatPhoneNumber from "../../utils/PhoneNumberFormatter.js";
+
+const client = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN,
+);
+const VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID;
+
+export const businessController = {
+  async sendOtp(req, res) {
+    let { businessPhoneNumber } = req.body;
+    console.log( "Received OTP request for phone number:", businessPhoneNumber);
+
+    if (!businessPhoneNumber) {
+      return res.status(400).json({ error: "Phone number is required" });
+    }
+
+    businessPhoneNumber = FormatPhoneNumber(businessPhoneNumber);
+
+  console.log("Transformed phone number to E.164 format:", businessPhoneNumber);
+
+    try {
+      const verification = await client.verify.v2
+        .services(VERIFY_SERVICE_SID)
+        .verifications.create({ to: businessPhoneNumber, channel: "sms" });
+      console.log(
+        `OTP sent to ${businessPhoneNumber} — status: ${verification.status}`,
+      );
+      return res
+        .status(200)
+        .json({ success: true, message: "OTP sent successfully" });
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      return res
+        .status(500)
+        .json({ success: false, error: "Failed to send OTP" });
+    }
+  },
+
+  async verifyOtp(req, res){
+      let { businessPhoneNumber, code } = req.body;
+
+      if(!businessPhoneNumber || !code){
+          return res.status(400).json({error: "Phone number and code are required"});
+      };
+
+       businessPhoneNumber = FormatPhoneNumber(businessPhoneNumber);
+
+      try{
+        const verificationCheck = await client.verify.v2
+        .services(VERIFY_SERVICE_SID)
+        .verificationChecks.create({ to: businessPhoneNumber, code });
+
+        console.log(`OTP check for ${businessPhoneNumber} — status: ${verificationCheck.status}`);
+        
+        if(verificationCheck.status === "approved"){
+          console.log(`OTP verified successfully for ${businessPhoneNumber}`);
+            return res.status(200).json({success: true, message: "OTP verified successfully"});
+        } else {
+            return res.status(400).json({success: false, error: "Invalid OTP"});
+        }
+      } catch (error) {
+        console.error("Error verifying OTP:", error);
+        return res.status(500).json({success: false, error: "Failed to verify OTP"});
+      }
+    },
+
+  async setupBusiness(req, res) {
+    try {
+      const {
+        businessName,
+        description,
+        businessAddress,
+        businessPhoneNumber,
+        businessEmail,
+        openingTime,
+        closingTime,
+        cancellationFee,
+        services, // array: [{ serviceName, price, durationMinutes }]
+      } = req.body;
+
+      console.log("Received business setup request with data:", req.body);
+      const userId = req.user.id;
+
+      if (
+        !businessName ||
+        !businessAddress ||
+        !businessPhoneNumber ||
+        !businessEmail ||
+        !openingTime ||
+        !closingTime
+      ) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Check user isn't already a business owner
+      const existing = await prisma.business.findUnique({
+        where: { ownerId: userId },
+      });
+
+      if (existing) {
+        return res.status(400).json({ error: "Business already set up" });
+      }
+
+      // Create business + services in one transaction
+      const business = await prisma.$transaction(async (tx) => {
+        // Create the business
+        const newBusiness = await tx.business.create({
+          data: {
+            businessName,
+            description,
+            businessAddress,
+            businessPhoneNumber,
+            businessEmail,
+            openingTime,
+            closingTime,
+            cancellationFeePercent: cancellationFee ?? 0,
+            ownerId: userId,
+          },
+        });
+
+        // Create services if provided
+        if (services && services.length > 0) {
+          await tx.service.createMany({
+            data: services.map((s) => ({
+              serviceName: s.name,
+              price: parseFloat(s.price),
+              durationMinutes: parseInt(s.duration, 10),
+              businessId: newBusiness.id,
+            })),
+          });
+        }
+
+        return newBusiness;
+      });
+
+      // Step 4 — Mark user as onboarded
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          isOnboarded: true,
+          onboardedAt: new Date(),
+        },
+      });
+
+      return res.status(201).json({
+        message: "Business setup complete",
+        business,
+        user: {
+          id: updatedUser.id,
+          displayName: updatedUser.displayName,
+          email: updatedUser.email,
+          profileImage: updatedUser.profileImage,
+          role: updatedUser.role,
+          isOnboarded: updatedUser.isOnboarded,
+        },
+      });
+    } catch (error) {
+      console.error("Setup business error:", error);
+      return res.status(500).json({ error: "Failed to setup business" });
+    }
+  },
+};
