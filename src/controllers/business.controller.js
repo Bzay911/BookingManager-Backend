@@ -11,7 +11,7 @@ const VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID;
 export const businessController = {
   async sendOtp(req, res) {
     let { businessPhoneNumber } = req.body;
-    console.log( "Received OTP request for phone number:", businessPhoneNumber);
+    console.log("Received OTP request for phone number:", businessPhoneNumber);
 
     if (!businessPhoneNumber) {
       return res.status(400).json({ error: "Phone number is required" });
@@ -19,7 +19,10 @@ export const businessController = {
 
     businessPhoneNumber = FormatPhoneNumber(businessPhoneNumber);
 
-  console.log("Transformed phone number to E.164 format:", businessPhoneNumber);
+    console.log(
+      "Transformed phone number to E.164 format:",
+      businessPhoneNumber,
+    );
 
     try {
       const verification = await client.verify.v2
@@ -39,33 +42,41 @@ export const businessController = {
     }
   },
 
-  async verifyOtp(req, res){
-      let { businessPhoneNumber, code } = req.body;
+  async verifyOtp(req, res) {
+    let { businessPhoneNumber, code } = req.body;
 
-      if(!businessPhoneNumber || !code){
-          return res.status(400).json({error: "Phone number and code are required"});
-      };
+    if (!businessPhoneNumber || !code) {
+      return res
+        .status(400)
+        .json({ error: "Phone number and code are required" });
+    }
 
-       businessPhoneNumber = FormatPhoneNumber(businessPhoneNumber);
+    businessPhoneNumber = FormatPhoneNumber(businessPhoneNumber);
 
-      try{
-        const verificationCheck = await client.verify.v2
+    try {
+      const verificationCheck = await client.verify.v2
         .services(VERIFY_SERVICE_SID)
         .verificationChecks.create({ to: businessPhoneNumber, code });
 
-        console.log(`OTP check for ${businessPhoneNumber} — status: ${verificationCheck.status}`);
-        
-        if(verificationCheck.status === "approved"){
-          console.log(`OTP verified successfully for ${businessPhoneNumber}`);
-            return res.status(200).json({success: true, message: "OTP verified successfully"});
-        } else {
-            return res.status(400).json({success: false, error: "Invalid OTP"});
-        }
-      } catch (error) {
-        console.error("Error verifying OTP:", error);
-        return res.status(500).json({success: false, error: "Failed to verify OTP"});
+      console.log(
+        `OTP check for ${businessPhoneNumber} — status: ${verificationCheck.status}`,
+      );
+
+      if (verificationCheck.status === "approved") {
+        console.log(`OTP verified successfully for ${businessPhoneNumber}`);
+        return res
+          .status(200)
+          .json({ success: true, message: "OTP verified successfully" });
+      } else {
+        return res.status(400).json({ success: false, error: "Invalid OTP" });
       }
-    },
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      return res
+        .status(500)
+        .json({ success: false, error: "Failed to verify OTP" });
+    }
+  },
 
   async setupBusiness(req, res) {
     try {
@@ -162,4 +173,17 @@ export const businessController = {
       return res.status(500).json({ error: "Failed to setup business" });
     }
   },
+
+  async getAllBusinesses(req, res){
+    try{
+      console.log("Received request to fetch all businesses with services");
+        const businesses = await prisma.business.findMany({
+            include: { services: true }
+        });
+        console.log("Fetched all businesses with services:", businesses);
+        res.status(200).json(businesses);
+    }catch(error){
+        res.status(500).json({ error: error.message });
+    };
+  }
 };
