@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import authRoutes from "./src/routes/auth.routes.js";
 import businessRoutes from "./src/routes/business.routes.js";
 import serviceRoutes from "./src/routes/service.routes.js";
+import bookingRoutes from "./src/routes/booking.routes.js";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/business', businessRoutes);
 app.use('/api/services', serviceRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 app.get('/', (req, res) => {
   res.send('API running...');
