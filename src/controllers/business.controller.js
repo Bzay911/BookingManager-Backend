@@ -198,6 +198,7 @@ export const businessController = {
         console.log("Fetched all businesses with services:", businesses);
         res.status(200).json(businesses);
     }catch(error){
+      console.error("Error fetching all businesses with services:", error);
         res.status(500).json({ error: error.message });
     };
   },
