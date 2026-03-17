@@ -72,6 +72,21 @@ export const businessController = {
       }
     } catch (error) {
       console.error("Error verifying OTP:", error);
+         if (err.status === 404) {
+      return res.status(400).json({ 
+        success: false, 
+        verified: false,
+        error: 'Code expired. Please request a new one.' 
+      });
+    }
+
+    if (err.code === 60202) {
+      return res.status(400).json({ 
+        success: false,
+        verified: false,
+        error: 'Too many attempts. Please request a new code.' 
+      });
+    }
       return res
         .status(500)
         .json({ success: false, error: "Failed to verify OTP" });
@@ -89,7 +104,7 @@ export const businessController = {
         openingTime,
         closingTime,
         cancellationFee,
-        services, // array: [{ serviceName, price, durationMinutes }]
+        services, 
       } = req.body;
 
       console.log("Received business setup request with data:", req.body);
@@ -136,7 +151,7 @@ export const businessController = {
         if (services && services.length > 0) {
           await tx.service.createMany({
             data: services.map((s) => ({
-              serviceName: s.name,
+              service: s.name,
               price: parseFloat(s.price),
               durationMinutes: parseInt(s.duration, 10),
               businessId: newBusiness.id,
