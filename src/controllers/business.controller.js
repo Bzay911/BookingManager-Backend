@@ -185,5 +185,25 @@ export const businessController = {
     }catch(error){
         res.status(500).json({ error: error.message });
     };
+  },
+
+  async fetchBusinessById(req,res){
+    try{
+      const { id } = req.params;
+      console.log(`Received request to fetch business with ID: ${id}`);
+      const business = await prisma.business.findUnique({
+        where: { id: parseInt(id) },
+        include: { services: true }
+      });
+      if (!business) {
+        console.log(`Business with ID ${id} not found`);
+        return res.status(404).json({ error: "Business not found" });
+      }
+      console.log(`Fetched business with ID ${id}:`, business);
+      res.status(200).json(business);
+    }catch(error){
+      console.error(`Error fetching business with ID ${req.params.id}:`, error);
+      res.status(500).json({ error: error.message });
+    }
   }
 };

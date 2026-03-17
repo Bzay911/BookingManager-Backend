@@ -61,12 +61,13 @@ model Business {
   services     Service[]
   bookings     Booking[]
   queueEntries QueueEntry[]
+  conversations Conversation[]
 }
 
 // SERVICE
 model Service {
   id              Int      @id @default(autoincrement())
-  service            String  
+  service            String?  
   price           Float    // e.g. 20.00
   durationMinutes Int      // e.g. 30
   createdAt       DateTime @default(now())
@@ -104,4 +105,16 @@ model QueueEntry {
   booking   Booking @relation(fields: [bookingId], references: [id])
   businessId Int
   business   Business @relation(fields: [businessId], references: [id])
+}
+
+// CONVERSATION
+model Conversation {
+  id            Int      @id @default(autoincrement())
+  customerPhone String
+  businessId    Int
+  role          String   // 'user' or 'assistant'
+  content       String
+  createdAt     DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
 }

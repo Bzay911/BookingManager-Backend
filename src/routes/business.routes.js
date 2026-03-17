@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(authMiddleware); 
 router.get('/get-all-businesses', businessController.getAllBusinesses);
+router.get('/get-business/:id', businessController.fetchBusinessById);
 router.post('/setup-business', businessController.setupBusiness);
 router.post('/send-otp', businessController.sendOtp);
 router.post('/verify-otp', businessController.verifyOtp);
