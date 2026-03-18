@@ -45,7 +45,7 @@ export const bookingController = {
     
     try {
       await client.messages.create({
-        from: 'whatsapp:+1234567890', // Your Twilio WhatsApp number
+        from: 'whatsapp:+14155238886', // Your Twilio WhatsApp number
         to: customerPhone,
         body: replyMessage
       });
