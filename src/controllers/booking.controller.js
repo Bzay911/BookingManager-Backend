@@ -12,7 +12,6 @@ const client = twilio(
 );
 
 // Helper Functions
-
 async function extractBusinessId(incomingMessage, phoneNumber) {
   const businessIdMatch = incomingMessage.match(/BUSINESS:(\d+)/);
 
@@ -120,4 +119,42 @@ export const bookingController = {
     const twiml = new MessagingResponse();
     return res.type("text/xml").send(twiml.toString());
   },
+
+  async getBookings(req, res){
+    const userId = req.user.id;
+    const business = await prisma.business.findFirst({
+      where: { ownerId: userId },
+    });
+
+    if(!business){
+      return res.status(404).json({error: "Business not found for this user"});
+    }
+
+    // const businessId = parseInt(req.params.businessId);
+    // console.log('received business id for fech booking', businessId);
+
+    try{
+      const bookings = await prisma.booking.findMany({
+        where: {businessId: business.id},
+        include:{
+          customer: true,
+          service: true
+        }
+      });
+
+      console.log("Fetched bookings for business id", bookings);
+
+      if(!bookings){
+        console.log("No bookings found for buiness id", business.id);
+        return res.status(404).json({error: "No bookings found for this business"});
+      }
+
+      return res.json(bookings);
+    } catch (error) {
+      console.error("Failed to fetch bookings:", error.message);
+      return res.status(500).json({ error: "Failed to fetch bookings" });
+    }
+
+  }
+
 };

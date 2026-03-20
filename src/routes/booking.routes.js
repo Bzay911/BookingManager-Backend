@@ -4,6 +4,9 @@ import { bookingController } from "../controllers/booking.controller.js";
 
 const router = Router();
 
-// router.use(authMiddleware); 
 router.post('/handle-incoming-message', bookingController.handleIncomingMessage);
+
+router.use(authMiddleware); 
+router.get('/get-all-bookings', bookingController.getBookings);
+
 export default router;

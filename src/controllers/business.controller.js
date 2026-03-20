@@ -1,6 +1,7 @@
 import prisma from "../lib/prisma.js";
 import twilio from "twilio";
 import FormatPhoneNumber from "../../utils/PhoneNumberFormatter.js";
+import { get } from "http";
 
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -188,6 +189,27 @@ export const businessController = {
       return res.status(500).json({ error: "Failed to setup business" });
     }
   },
+
+async getBusinessByOwner(req, res) {
+  const userId = req.user.id;
+  try {
+    // Change findUnique to findMany to get an ARRAY
+    const businesses = await prisma.business.findMany({
+      where: { ownerId: userId },
+      include: { services: true }
+    });
+
+    // findMany returns an empty array [] if nothing is found, 
+    // so we check length instead of !businesses
+    if (businesses.length === 0) {
+      return res.status(404).json({ error: "No businesses found for this owner" });
+    }
+
+    return res.json(businesses); // This now sends [...]
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to fetch business" });
+  }
+},
 
   async getAllBusinesses(req, res){
     try{

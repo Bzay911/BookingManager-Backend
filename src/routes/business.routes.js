@@ -10,5 +10,6 @@ router.use(authMiddleware);
 router.post('/setup-business', businessController.setupBusiness);
 router.post('/send-otp', businessController.sendOtp);
 router.post('/verify-otp', businessController.verifyOtp);
+router.get('/get-business-by-owner', businessController.getBusinessByOwner);
 
 export default router;
