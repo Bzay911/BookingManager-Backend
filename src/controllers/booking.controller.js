@@ -1,19 +1,20 @@
 import prisma from "../lib/prisma.js";
 import twilio from "twilio";
+import { generateReply } from "../../services/ai.service.js";
 
 const { MessagingResponse } = twilio.twiml;
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const client = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN,
+);
 
 export const bookingController = {
   async handleIncomingMessage(req, res) {
     const incomingMessage = req.body.Body;
-    const customerPhone = req.body.From; // whatsapp:+61412345678
-    const phoneNumber = customerPhone.replace('whatsapp:', '');
+    const customerPhone = req.body.From;
+    const phoneNumber = customerPhone.replace("whatsapp:", "");
 
-    console.log('📱 Message received from:', phoneNumber);
-    console.log('Message:', incomingMessage);
-
-    // Save message to database
+    // Extract businessId
     let businessId = null;
     const businessIdMatch = incomingMessage.match(/BUSINESS:(\d+)/);
 
@@ -22,51 +23,95 @@ export const bookingController = {
     } else {
       const lastConvo = await prisma.conversation.findFirst({
         where: { customerPhone: phoneNumber },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: "desc" },
       });
       businessId = lastConvo?.businessId;
     }
 
+    // Find or create customer 
+    let customer = await prisma.user.findUnique({
+      where: { phoneNumber },
+    });
+
+    if (!customer) {
+      customer = await prisma.user.create({
+        data: {
+          phoneNumber,
+          role: "CUSTOMER",
+        },
+      });
+    }
+
+    // Save incoming message to DB 
     await prisma.conversation.create({
       data: {
         customerPhone: phoneNumber,
         businessId,
-        role: 'user',
+        role: "user",
         content: incomingMessage,
-      }
+      },
     });
 
-    console.log('✅ Message saved to database');
+    // Fetch history + business in parallel 
+    const [history, business] = await Promise.all([
+      prisma.conversation.findMany({
+        where: { customerPhone: phoneNumber, businessId },
+        orderBy: { createdAt: "asc" },
+        take: 20,
+      }),
+      businessId
+        ? prisma.business.findUnique({
+            where: { id: businessId },
+            include: { services: true },
+          })
+        : null,
+    ]);
 
-    // ===== NOW SEND A REPLY =====
-    
-    // Option 1: Send a simple auto-reply
-    const replyMessage = "Thanks for your message! We'll get back to you shortly.";
-    
+    // Check if customer just provided their name
+    if (!customer.displayName) {
+      const lastAssistantMsg = history
+        .filter((msg) => msg.role === "assistant")
+        .at(-1);
+
+      if (lastAssistantMsg?.content.toLowerCase().includes("name")) {
+        // this message is their name — save it
+        customer = await prisma.user.update({
+          where: { phoneNumber },
+          data: { displayName: incomingMessage },
+        });
+      }
+    }
+
+    // Generate AI reply
+    const replyMessage = await generateReply({
+      history,
+      business,
+      incomingMessage,
+      customer,
+    });
+
+    // Send reply via Twilio + save to DB
     try {
       await client.messages.create({
-        from: 'whatsapp:+14155238886', // Your Twilio WhatsApp number
+        from: "whatsapp:+14155238886",
         to: customerPhone,
-        body: replyMessage
+        body: replyMessage,
       });
-      
-      console.log('✅ Reply sent!');
-      
-      // Also save the reply to database
+
       await prisma.conversation.create({
         data: {
           customerPhone: phoneNumber,
           businessId,
-          role: 'assistant',
+          role: "assistant",
           content: replyMessage,
-        }
+        },
       });
     } catch (error) {
-      console.error('❌ Failed to send reply:', error.message);
+      console.error("Failed to send reply:", error.message);
     }
 
     // Respond to Twilio webhook
     const twiml = new MessagingResponse();
-    return res.type('text/xml').send(twiml.toString());
-  }
+    return res.type("text/xml").send(twiml.toString());
+  },
 };
