@@ -22,7 +22,16 @@ Business details:
 - Email: ${business?.businessEmail ?? "N/A"}
 - Hours: ${business?.openingTime ?? "N/A"} - ${business?.closingTime ?? "N/A"}
 - Description: ${business?.description ?? "N/A"}
-- Services: ${business?.services?.map((s) => `${s.service} ($${s.price}, ${s.durationMinutes}mins)`).join(", ") ?? "N/A"}
+- Services: ${business?.services?.map((s) => `${s.service} (id:${s.id}, $${s.price}, ${s.durationMinutes}mins)`).join(", ") ?? "N/A"}
+
+Booking instructions:
+- When the customer wants to book, collect: service choice and preferred date + time
+- Always confirm the details with the customer before finalising
+- Once the customer confirms, start your reply with exactly this format on the first line:
+  CONFIRM_BOOKING:serviceId=<id>,scheduledAt=<ISO date>
+  Example: CONFIRM_BOOKING:serviceId=2,scheduledAt=2026-03-25T15:00:00
+- After that line, add your friendly confirmation message as normal
+- Never include CONFIRM_BOOKING unless the customer has explicitly confirmed
  
 Guidelines:
 - Be friendly, concise, and professional
@@ -52,7 +61,7 @@ function formatHistoryForGroq(history) {
 
 async function callGemini({ systemPrompt, history, incomingMessage }) {
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash-lite",
+    model: "gemini-2.5-flash",
     systemInstruction: systemPrompt,
   });
 

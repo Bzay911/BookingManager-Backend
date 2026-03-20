@@ -1,6 +1,9 @@
 import prisma from "../lib/prisma.js";
 import twilio from "twilio";
 import { generateReply } from "../../services/ai.service.js";
+import fetchAIContext from "../../utils/FetchAiContext.js";
+import updateCustomerName from "../../utils/UpdateCustomerName.js";
+import createBooking from "../../utils/CreateBooking.js";
 
 const { MessagingResponse } = twilio.twiml;
 const client = twilio(
@@ -8,41 +11,81 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN,
 );
 
+// Helper Functions
+
+async function extractBusinessId(incomingMessage, phoneNumber) {
+  const businessIdMatch = incomingMessage.match(/BUSINESS:(\d+)/);
+
+  if (businessIdMatch) {
+    return parseInt(businessIdMatch[1]);
+  }
+
+  const lastConvo = await prisma.conversation.findFirst({
+    where: { customerPhone: phoneNumber },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return lastConvo?.businessId ?? null;
+};
+
+async function findOrCreateCustomer(phoneNumber) {
+  let customer = await prisma.user.findUnique({
+    where: { phoneNumber },
+  });
+
+  if (!customer) {
+    customer = await prisma.user.create({
+      data: {
+        phoneNumber,
+        role: "CUSTOMER",
+      },
+    });
+  }
+
+  return customer;
+};
+
+function stripBookingSignal(replyMessage) {
+  // we are only sending the friendly message to customer 
+  return replyMessage.replace(/CONFIRM_BOOKING:[^\n]+\n?/, "").trim();
+};
+
+async function sendReply(customerPhone, phoneNumber, businessId, cleanReply) {
+  try {
+    await client.messages.create({
+      from: "whatsapp:+14155238886",
+      to: customerPhone,
+      body: cleanReply,
+    });
+
+    await prisma.conversation.create({
+      data: {
+        customerPhone: phoneNumber,
+        businessId,
+        role: "assistant",
+        content: cleanReply,
+      },
+    });
+
+    console.log("Reply sent successfully");
+  } catch (error) {
+    console.error("Failed to send reply:", error.message);
+  }
+};
+
 export const bookingController = {
   async handleIncomingMessage(req, res) {
     const incomingMessage = req.body.Body;
     const customerPhone = req.body.From;
     const phoneNumber = customerPhone.replace("whatsapp:", "");
 
-    // Extract businessId
-    let businessId = null;
-    const businessIdMatch = incomingMessage.match(/BUSINESS:(\d+)/);
+    // 1. figure out which business
+    const businessId = await extractBusinessId(incomingMessage, phoneNumber);
 
-    if (businessIdMatch) {
-      businessId = parseInt(businessIdMatch[1]);
-    } else {
-      const lastConvo = await prisma.conversation.findFirst({
-        where: { customerPhone: phoneNumber },
-        orderBy: { createdAt: "desc" },
-      });
-      businessId = lastConvo?.businessId;
-    }
+    // 2. who is texting
+    let customer = await findOrCreateCustomer(phoneNumber);
 
-    // Find or create customer 
-    let customer = await prisma.user.findUnique({
-      where: { phoneNumber },
-    });
-
-    if (!customer) {
-      customer = await prisma.user.create({
-        data: {
-          phoneNumber,
-          role: "CUSTOMER",
-        },
-      });
-    }
-
-    // Save incoming message to DB 
+    // 3. save incoming message to DB
     await prisma.conversation.create({
       data: {
         customerPhone: phoneNumber,
@@ -52,37 +95,13 @@ export const bookingController = {
       },
     });
 
-    // Fetch history + business in parallel 
-    const [history, business] = await Promise.all([
-      prisma.conversation.findMany({
-        where: { customerPhone: phoneNumber, businessId },
-        orderBy: { createdAt: "asc" },
-        take: 20,
-      }),
-      businessId
-        ? prisma.business.findUnique({
-            where: { id: businessId },
-            include: { services: true },
-          })
-        : null,
-    ]);
+    // 4. fetch context for AI
+    const { history, business } = await fetchAIContext(phoneNumber, businessId);
 
-    // Check if customer just provided their name
-    if (!customer.displayName) {
-      const lastAssistantMsg = history
-        .filter((msg) => msg.role === "assistant")
-        .at(-1);
+    // 5. check if customer just provided their name
+    customer = await updateCustomerName(customer, history, incomingMessage, phoneNumber);
 
-      if (lastAssistantMsg?.content.toLowerCase().includes("name")) {
-        // this message is their name — save it
-        customer = await prisma.user.update({
-          where: { phoneNumber },
-          data: { displayName: incomingMessage },
-        });
-      }
-    }
-
-    // Generate AI reply
+    // 6. generate AI reply
     const replyMessage = await generateReply({
       history,
       business,
@@ -90,27 +109,14 @@ export const bookingController = {
       customer,
     });
 
-    // Send reply via Twilio + save to DB
-    try {
-      await client.messages.create({
-        from: "whatsapp:+14155238886",
-        to: customerPhone,
-        body: replyMessage,
-      });
+    // 7. create booking if signal detected
+    await createBooking(replyMessage, customer, businessId);
 
-      await prisma.conversation.create({
-        data: {
-          customerPhone: phoneNumber,
-          businessId,
-          role: "assistant",
-          content: replyMessage,
-        },
-      });
-    } catch (error) {
-      console.error("Failed to send reply:", error.message);
-    }
+    // 8. strip signal and send clean reply
+    const cleanReply = stripBookingSignal(replyMessage);
+    await sendReply(customerPhone, phoneNumber, businessId, cleanReply);
 
-    // Respond to Twilio webhook
+    // 9. acknowledge twilio webhook
     const twiml = new MessagingResponse();
     return res.type("text/xml").send(twiml.toString());
   },
