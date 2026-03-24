@@ -1,3 +1,5 @@
+import prisma from "../src/lib/prisma.js";
+
 async function updateCustomerName(customer, history, incomingMessage, phoneNumber) {
   if (customer.displayName) return customer;
  

@@ -5,6 +5,7 @@ import authRoutes from "./src/routes/auth.routes.js";
 import businessRoutes from "./src/routes/business.routes.js";
 import serviceRoutes from "./src/routes/service.routes.js";
 import bookingRoutes from "./src/routes/booking.routes.js";
+import paymentRoutes from "./src/routes/payment.routes.js";
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(cors({
 }));
 
 app.use(express.urlencoded({ extended: false }));
+app.use('/api/payments', paymentRoutes);
 app.use(express.json());
 
 // Routes

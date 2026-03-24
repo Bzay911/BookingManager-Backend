@@ -11,5 +11,12 @@ export const serviceController = {
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
-    }
+    },
+    
+    // async addService(req, res){
+    //     try{
+    //         const {}
+    //     }
+    // }
+
 };

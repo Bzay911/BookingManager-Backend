@@ -26,6 +26,18 @@ enum QueueStatus {
   REMOVED
 }
 
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentType {
+  BOOKING // standard service payment
+  CANCELLATION_FEE //charged when customer cancels late
+}
+
 // USER
 model User {
   id           Int      @id @default(autoincrement())
@@ -36,7 +48,8 @@ model User {
   profileImage String?
   role         Role?     
   isOnboarded  Boolean @default(false)
-  onboardedAt  DateTime?    
+  onboardedAt  DateTime?
+  stripeCustomerId String? @unique    
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   business     Business?     // these are relations only if role = Business
@@ -55,14 +68,16 @@ model Business {
   openingTime            String   // e.g. "09:00"
   closingTime            String   // e.g. "18:00"
   cancellationFeePercent Float    @default(0) // e.g. 20 = 20%
+  stripeAccountId        String? @unique
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
-  ownerId Int  @unique
-  owner   User @relation(fields: [ownerId], references: [id])
-  services     Service[]
-  bookings     Booking[]
-  queueEntries QueueEntry[]
+  ownerId Int   @unique
+  owner   User  @relation(fields: [ownerId], references: [id])
+  services      Service[]
+  bookings      Booking[]
+  queueEntries  QueueEntry[]
   conversations Conversation[]
+  payments      Payment[]
 }
 
 // SERVICE
@@ -85,6 +100,7 @@ model Booking {
   status                 BookingStatus @default(PENDING)
   cancellationFeeCharged Float?        // actual $ amount charged e.g. 4.00
   cancelledAt            DateTime?     // when they cancelled
+  stripePaymentIntentId  String?
   createdAt              DateTime      @default(now())
   updatedAt              DateTime      @updatedAt
   customerId Int
@@ -94,6 +110,7 @@ model Booking {
   serviceId Int
   service   Service @relation(fields: [serviceId], references: [id])
   queueEntry QueueEntry? // one booking = one queue entry
+  payments Payment[]
 }
 
 // QUEUE ENTRY
@@ -106,6 +123,31 @@ model QueueEntry {
   booking   Booking @relation(fields: [bookingId], references: [id])
   businessId Int
   business   Business @relation(fields: [businessId], references: [id])
+}
+
+model Payment {
+  id                    Int           @id @default(autoincrement())
+  stripePaymentIntentId String?        @unique // pi_xxx
+  amount                Float         // in dollars e.g. 25.00
+  currency              String        @default("aud")
+  status                PaymentStatus @default(PENDING)
+  type                  PaymentType   @default(BOOKING)
+  stripeChargeId        String?       // ch_xxx — available after charge succeeds
+  receiptUrl            String?       // Stripe-hosted receipt link
+  failureReason         String?       // populated if status = FAILED
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  bookingId             Int @unique
+  booking               Booking       @relation(fields: [bookingId], references: [id])
+  businessId            Int
+  business              Business      @relation(fields: [businessId], references: [id])
+}
+
+model StripeWebhookEvent {
+  id          Int      @id @default(autoincrement())
+  stripeEventId String @unique // evt_xxx — prevents processing twice
+  type        String           // e.g. "payment_intent.succeeded"
+  processedAt DateTime @default(now())
 }
 
 // CONVERSATION

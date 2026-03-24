@@ -5,6 +5,13 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 function buildSystemPrompt(business, customer) {
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   const customerContext = customer?.displayName
     ? `You are talking to ${customer.displayName}, a returning customer.`
     : `This is a new customer. Greet them warmly, thank them for reaching out to ${business?.businessName}, and 
@@ -12,6 +19,7 @@ function buildSystemPrompt(business, customer) {
 
   return `You are a helpful booking assistant for ${business?.businessName ?? "a local business"}.
 Your job is to help customers with bookings, answer questions about services, and provide information.
+Today is ${currentDate}
  
 Customer: ${customerContext}
 
