@@ -1,4 +1,3 @@
-import parseBookingSignal from "./ParseBookingSignal.js";
 import prisma from "../src/lib/prisma.js";
 import stripe from "../src/lib/stripe.js";
 import twilio from "twilio";
@@ -24,39 +23,34 @@ async function getOrCreateStripeCustomer(customer) {
   return stripeCustomer.id;
 };
 
-async function createBooking(replyMessage, customer, businessId) {
-  // 1. Parse the booking signal from AI reply — bail if none
-  const bookingSignal = parseBookingSignal(replyMessage);
-  if (!bookingSignal) return;
-
+async function createBooking(bookingArgs, customer, businessId) {
   try {
-    // 2. Load service so we have the price + business name
+    // Load service so we have the price + business name
     const service = await prisma.service.findUnique({
-      where: { id: bookingSignal.serviceId },
+      where: { id: bookingArgs.serviceId },
       include: { business: true },
     });
 
     if (!service) {
-      console.error("Service not found:", bookingSignal.serviceId);
+      console.error("Service not found:", bookingArgs.serviceId);
       return;
     }
 
-    // 3. Create booking with PENDING status
+    // Create booking with PENDING status
     const booking = await prisma.booking.create({
       data: {
         customerId:  customer.id,
         businessId,
-        serviceId:   bookingSignal.serviceId,
-        scheduledAt: bookingSignal.scheduledAt,
+        serviceId:   bookingArgs.serviceId,
+        scheduledAt: new Date(bookingArgs.scheduledAt),
         status:      "PENDING",
       },
     });
-    console.log("Booking created:", booking.id);
 
-    // 4. Get or create Stripe customer
+    // Get or create Stripe customer
     const stripeCustomerId = await getOrCreateStripeCustomer(customer);
 
-    // 5. Create Stripe Payment Link
+    // Create Stripe Payment Link
     const amountInCents = Math.round(service.price * 100);
 
    const paymentLink = await stripe.paymentLinks.create({
@@ -67,7 +61,7 @@ async function createBooking(replyMessage, customer, businessId) {
         unit_amount: amountInCents,
         product_data: {
           name:        `${service.service} at ${service.business.businessName}`,
-          description: `Appointment on ${new Date(bookingSignal.scheduledAt).toDateString()}`,
+          description: `Appointment on ${new Date(bookingArgs.scheduledAt).toDateString()}`,
         },
       },
       quantity: 1,
@@ -86,9 +80,7 @@ async function createBooking(replyMessage, customer, businessId) {
   },
 });
 
-    console.log("Payment link created:", paymentLink.url);
-
-    // 6. Save Payment record in DB
+    // Save Payment record in DB
     await prisma.payment.create({
       data: {
         stripePaymentIntentId: paymentLink.id, // real PI id will come via webhook
@@ -101,14 +93,13 @@ async function createBooking(replyMessage, customer, businessId) {
       },
     });
 
-    // 7. Send payment link to customer via WhatsApp
+    //  Send payment link to customer via WhatsApp
     await twilioClient.messages.create({
       from: "whatsapp:+14155238886",
       to:   `whatsapp:${customer.phoneNumber}`,
       body: `Great! Your booking is almost confirmed.\n\nTap here to complete your payment:\n${paymentLink.url}`,
     });
 
-    console.log("Payment link sent to:", customer.phoneNumber);
 
   } catch (error) {
     console.error("Failed to create booking:", error.message);

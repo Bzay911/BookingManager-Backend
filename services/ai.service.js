@@ -1,5 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import createBookingToolGemini from "./createBookingToolGemini.js";
 import Groq from "groq-sdk";
+import createBookingToolGroq from "./createBookingToolGroq.js";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -19,7 +21,7 @@ function buildSystemPrompt(business, customer) {
 
   return `You are a helpful booking assistant for ${business?.businessName ?? "a local business"}.
 Your job is to help customers with bookings, answer questions about services, and provide information.
-Today is ${currentDate}
+Today is ${currentDate}.
  
 Customer: ${customerContext}
 
@@ -33,13 +35,10 @@ Business details:
 - Services: ${business?.services?.map((s) => `${s.service} (id:${s.id}, $${s.price}, ${s.durationMinutes}mins)`).join(", ") ?? "N/A"}
 
 Booking instructions:
-- When the customer wants to book, collect: service choice and preferred date + time
-- Always confirm the details with the customer before finalising
-- Once the customer confirms, start your reply with exactly this format on the first line:
-  CONFIRM_BOOKING:serviceId=<id>,scheduledAt=<ISO date>
-  Example: CONFIRM_BOOKING:serviceId=2,scheduledAt=2026-03-25T15:00:00
-- After that line, add your friendly confirmation message as normal
-- Never include CONFIRM_BOOKING unless the customer has explicitly confirmed
+- When the customer wants to book, collect: service choice and preferred date + time.
+- Always confirm all details with the customer before finalising.
+- IMPORTANT: Once the customer explicitly confirms, YOU MUST USE the 'create_booking' function/tool to finalize it.
+- Never use the function unless the customer has explicitly confirmed the service and time.
  
 Guidelines:
 - Be friendly, concise, and professional
@@ -71,6 +70,8 @@ async function callGemini({ systemPrompt, history, incomingMessage }) {
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
     systemInstruction: systemPrompt,
+    // Give Gemini the tool so it knows it exists
+    tools: { functionDeclarations: [createBookingToolGemini] },
   });
 
   const chat = model.startChat({
@@ -78,7 +79,24 @@ async function callGemini({ systemPrompt, history, incomingMessage }) {
   });
 
   const result = await chat.sendMessage(incomingMessage);
-  return result.response.text();
+
+  // Did Gemini decide to call our booking function?
+  const functionCalls = result.response.functionCalls();
+  if (functionCalls && functionCalls.length > 0) {
+    const call = functionCalls[0];
+    console.log("Gemini wants to make a booking!", call.args);
+    return {
+      type: "TOOL_CALL",
+      tool: call.name, // Will be "create_booking"
+      args: call.args, // Will be { serviceId: 2, scheduledAt: '...' }
+    };
+  }
+
+  // Otherwise, return regular conversational text
+  return {
+    type: "TEXT",
+    content: result.response.text(),
+  };
 }
 
 // Groq (fallback)
@@ -93,9 +111,28 @@ async function callGroq({ systemPrompt, history, incomingMessage }) {
     model: "llama-3.1-8b-instant",
     messages,
     max_tokens: 300,
+    // Give Groq the tool array
+    tools: createBookingToolGroq,
   });
 
-  return completion.choices[0].message.content;
+  const responseMessage = completion.choices[0].message;
+
+  // Did Groq decide to call our booking function?
+  if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
+    const toolCall = responseMessage.tool_calls[0];
+    console.log("Groq wants to make a booking!", toolCall.function.arguments);
+    return {
+      type: "TOOL_CALL",
+      tool: toolCall.function.name, // Will be "create_booking"
+      args: JSON.parse(toolCall.function.arguments), // Groq returns arguments as a string, so we parse it
+    };
+  }
+
+  // Otherwise, return regular conversational text
+  return {
+    type: "TEXT",
+    content: responseMessage.content,
+  };
 }
 
 export async function generateReply({

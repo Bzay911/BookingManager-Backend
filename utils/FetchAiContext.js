@@ -5,7 +5,7 @@ async function fetchAIContext(phoneNumber, businessId) {
     prisma.conversation.findMany({
       where: { customerPhone: phoneNumber, businessId },
       orderBy: { createdAt: "asc" },
-      take: 20,
+      take: 10,
     }),
     businessId
       ? prisma.business.findUnique({
