@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
+import {initSocket} from './src/socket/socket.js';
 import authRoutes from "./src/routes/auth.routes.js";
 import businessRoutes from "./src/routes/business.routes.js";
 import serviceRoutes from "./src/routes/service.routes.js";
@@ -32,6 +34,9 @@ app.get('/', (req, res) => {
   res.send('API running...');
 })
 
-app.listen(PORT, () => {
+const httpServer = createServer(app);
+initSocket(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 })

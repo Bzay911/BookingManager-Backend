@@ -1,7 +1,6 @@
 import prisma from "../lib/prisma.js";
 import twilio from "twilio";
-import FormatPhoneNumber from "../../utils/PhoneNumberFormatter.js";
-import { get } from "http";
+import FormatPhoneNumber from "../utils/PhoneNumberFormatter.js";
 
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,

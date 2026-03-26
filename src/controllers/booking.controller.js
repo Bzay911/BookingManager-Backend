@@ -1,11 +1,11 @@
 import prisma from "../lib/prisma.js";
 import twilio from "twilio";
-import { generateReply } from "../../services/ai.service.js";
-import fetchAIContext from "../../utils/FetchAiContext.js";
-import updateCustomerName from "../../utils/UpdateCustomerName.js";
-import createBooking from "../../utils/CreateBooking.js";
-import findOrCreateCustomer from "../../utils/FindOrCreateCustomer.js";
-import sendReply from "../../utils/SendReply.js";
+import { generateReply } from "../services/ai/ai.service.js";
+import fetchAIContext from "../utils/FetchAiContext.js";
+import updateCustomerName from "../utils/UpdateCustomerName.js";
+import createBooking from "../services/ai/booking.service.js";
+import findOrCreateCustomer from "../utils/FindOrCreateCustomer.js";
+import sendReply from "../utils/SendReply.js";
 
 const { MessagingResponse } = twilio.twiml;
 
@@ -70,12 +70,6 @@ export const bookingController = {
       console.log("Ai trigerred the booking tool! Executing db logic");
 
       await createBooking(aiResponse.args, customer, businessId);
-      await sendReply(
-        customerPhone,
-        phoneNumber,
-        businessId,
-        "Booking initiated! Generating your payment link...",
-      );
     } else {
       console.log("AI just sent a text response.");
       await sendReply(
