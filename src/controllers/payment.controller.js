@@ -51,11 +51,29 @@ export const paymentContoller = {
               where: { id: Number(bookingId) },
             });
 
-            // const lastQueueEntry = await prisma.queueEntry.findFirst({
-            //   where:   { businessId: booking.businessId },
-            //   orderBy: { position: "desc" },
-            // });
-            // const nextPosition = lastQueueEntry ? lastQueueEntry.position + 1 : 1;
+            const bookingDate = new Date(booking.scheduledAt);
+
+            // start of that day — e.g. 2025-08-10 00:00:00
+            const dayStart = new Date(bookingDate);
+            dayStart.setHours(0, 0, 0, 0);
+
+            // end of that day — e.g. 2025-08-10 23:59:59
+            const dayEnd = new Date(bookingDate);
+            dayEnd.setHours(23, 59, 59, 999);
+
+            const lastQueueEntry = await prisma.queueEntry.findFirst({
+              where: {
+                businessId: booking.businessId,
+                status: "WAITING",
+                booking: {
+                  scheduledAt: { gte: dayStart, lte: dayEnd }
+                }
+              },
+              orderBy: { position: "desc" }
+            });
+
+            const nextPosition = lastQueueEntry ? lastQueueEntry.position + 1 : 1;
+
 
             await prisma.$transaction([
               prisma.payment.update({
@@ -69,14 +87,14 @@ export const paymentContoller = {
                 where: { id: Number(bookingId) },
                 data: { status: "COMPLETED" },
               }),
-              // prisma.queueEntry.create({
-              //   data: {
-              //     position:   nextPosition,
-              //     status:     "WAITING",
-              //     bookingId:  Number(bookingId),
-              //     businessId: booking.businessId,
-              //   },
-              // }),
+              prisma.queueEntry.create({
+                data: {
+                  position: nextPosition,
+                  status: "WAITING",
+                  bookingId: Number(bookingId),
+                  businessId: booking.businessId,
+                },
+              }),
             ]);
 
             const customer = await prisma.user.findUnique({
@@ -86,8 +104,7 @@ export const paymentContoller = {
             await twilioClient.messages.create({
               from: "whatsapp:+14155238886",
               to: `whatsapp:${customer.phoneNumber}`,
-              // body: `Your booking is confirmed! You are number ${nextPosition} in the queue. See you soon.`,
-              body: `Your booking is confirmed! You are number in the queue. See you soon.`,
+              body: `Your booking is confirmed! You are number ${nextPosition} in the queue. See you soon.`,
             });
 
             console.log("Booking confirmed:", bookingId);

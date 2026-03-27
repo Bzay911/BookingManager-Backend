@@ -8,6 +8,7 @@ import businessRoutes from "./src/routes/business.routes.js";
 import serviceRoutes from "./src/routes/service.routes.js";
 import bookingRoutes from "./src/routes/booking.routes.js";
 import paymentRoutes from "./src/routes/payment.routes.js";
+import queueRoutes from "./src/routes/queue.routes.js";
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/business', businessRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/liveQueue', queueRoutes);
 
 app.get('/', (req, res) => {
   res.send('API running...');

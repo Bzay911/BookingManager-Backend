@@ -52,7 +52,7 @@ export const bookingController = {
     const { history, business } = await fetchAIContext(phoneNumber, businessId);
 
     // check if customer just provided their name
-    customer = await updateCustomerName(
+    customer = await updateCustomerName( // also maybe create a tool for checking if the name is legit
       customer,
       history,
       incomingMessage,
