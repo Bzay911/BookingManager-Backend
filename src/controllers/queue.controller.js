@@ -59,5 +59,6 @@ export const queueController = {
       console.error("Error fetching live queue", err);
       res.status(500).json({ error: "Failed to fetch live queue" });
     }
-  }
+  },
+
 };

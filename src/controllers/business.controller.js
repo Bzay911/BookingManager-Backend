@@ -1,6 +1,7 @@
 import prisma from "../lib/prisma.js";
 import twilio from "twilio";
 import FormatPhoneNumber from "../utils/PhoneNumberFormatter.js";
+import generateSlots from "../services/slot/generateSlots.js";
 
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -240,6 +241,34 @@ async getBusinessByOwner(req, res) {
       res.status(200).json(business);
     }catch(error){
       console.error(`Error fetching business with ID ${req.params.id}:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+  async getAvaliableSlots(req,res){
+    try{
+
+      const userId = req.user.id;
+      const { serviceId } = req.params;
+    const business = await prisma.business.findUnique({
+      where: { ownerId: userId },
+      include: { services: true }
+    });
+      if (!business) { 
+        console.log(`Business not found`);
+        return res.status(404).json({ error: "Business not found" });
+      }
+      console.log(`Fetched business`, business);
+      const service = business.services.find(s => s.id === parseInt(serviceId));
+      if (!service) {
+        console.log(`Service with ID ${serviceId} not found`);
+        return res.status(404).json({ error: "Service not found" });
+      }
+      const slots = generateSlots(business.openingTime, business.closingTime, service.durationMinutes);
+      // console.log(`Generated ${slots.length} slots for business ID ${id} on date ${date}`);
+      console.log("Sample slots:", slots); 
+      res.status(200).json(slots);
+    }catch(error){
+      console.error(`Error fetching available slots for business ID ${req.params.id}:`, error);
       res.status(500).json({ error: error.message });
     }
   }
