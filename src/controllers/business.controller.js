@@ -73,21 +73,21 @@ export const businessController = {
       }
     } catch (error) {
       console.error("Error verifying OTP:", error);
-         if (err.status === 404) {
-      return res.status(400).json({ 
-        success: false, 
-        verified: false,
-        error: 'Code expired. Please request a new one.' 
-      });
-    }
+      if (err.status === 404) {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          error: "Code expired. Please request a new one.",
+        });
+      }
 
-    if (err.code === 60202) {
-      return res.status(400).json({ 
-        success: false,
-        verified: false,
-        error: 'Too many attempts. Please request a new code.' 
-      });
-    }
+      if (err.code === 60202) {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          error: "Too many attempts. Please request a new code.",
+        });
+      }
       return res
         .status(500)
         .json({ success: false, error: "Failed to verify OTP" });
@@ -105,7 +105,7 @@ export const businessController = {
         openingTime,
         closingTime,
         cancellationFee,
-        services, 
+        services,
       } = req.body;
 
       console.log("Received business setup request with data:", req.body);
@@ -190,48 +190,50 @@ export const businessController = {
     }
   },
 
-async getBusinessByOwner(req, res) {
-  const userId = req.user.id;
-  try {
-    // Change findUnique to findMany to get an ARRAY
-    const businesses = await prisma.business.findMany({
-      where: { ownerId: userId },
-      include: { services: true }
-    });
+  async getBusinessByOwner(req, res) {
+    const userId = req.user.id;
+    try {
+      // Change findUnique to findMany to get an ARRAY
+      const businesses = await prisma.business.findMany({
+        where: { ownerId: userId },
+        include: { services: true },
+      });
 
-    // findMany returns an empty array [] if nothing is found, 
-    // so we check length instead of !businesses
-    if (businesses.length === 0) {
-      return res.status(404).json({ error: "No businesses found for this owner" });
+      // findMany returns an empty array [] if nothing is found,
+      // so we check length instead of !businesses
+      if (businesses.length === 0) {
+        return res
+          .status(404)
+          .json({ error: "No businesses found for this owner" });
+      }
+
+      return res.json(businesses); // This now sends [...]
+    } catch (error) {
+      return res.status(500).json({ error: "Failed to fetch business" });
     }
-
-    return res.json(businesses); // This now sends [...]
-  } catch (error) {
-    return res.status(500).json({ error: "Failed to fetch business" });
-  }
-},
-
-  async getAllBusinesses(req, res){
-    try{
-      console.log("Received request to fetch all businesses with services");
-        const businesses = await prisma.business.findMany({
-            include: { services: true }
-        });
-        console.log("Fetched all businesses with services:", businesses);
-        res.status(200).json(businesses);
-    }catch(error){
-      console.error("Error fetching all businesses with services:", error);
-        res.status(500).json({ error: error.message });
-    };
   },
 
-  async fetchBusinessById(req,res){
-    try{
+  async getAllBusinesses(req, res) {
+    try {
+      console.log("Received request to fetch all businesses with services");
+      const businesses = await prisma.business.findMany({
+        include: { services: true },
+      });
+      console.log("Fetched all businesses with services:", businesses);
+      res.status(200).json(businesses);
+    } catch (error) {
+      console.error("Error fetching all businesses with services:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  async fetchBusinessById(req, res) {
+    try {
       const { id } = req.params;
       console.log(`Received request to fetch business with ID: ${id}`);
       const business = await prisma.business.findUnique({
         where: { id: parseInt(id) },
-        include: { services: true }
+        include: { services: true },
       });
       if (!business) {
         console.log(`Business with ID ${id} not found`);
@@ -239,37 +241,37 @@ async getBusinessByOwner(req, res) {
       }
       console.log(`Fetched business with ID ${id}:`, business);
       res.status(200).json(business);
-    }catch(error){
+    } catch (error) {
       console.error(`Error fetching business with ID ${req.params.id}:`, error);
       res.status(500).json({ error: error.message });
     }
   },
-  async getAvaliableSlots(req,res){
-    try{
+  // async getAvaliableSlots(req,res){
+  //   try{
 
-      const userId = req.user.id;
-      const { serviceId } = req.params;
-    const business = await prisma.business.findUnique({
-      where: { ownerId: userId },
-      include: { services: true }
-    });
-      if (!business) { 
-        console.log(`Business not found`);
-        return res.status(404).json({ error: "Business not found" });
-      }
-      console.log(`Fetched business`, business);
-      const service = business.services.find(s => s.id === parseInt(serviceId));
-      if (!service) {
-        console.log(`Service with ID ${serviceId} not found`);
-        return res.status(404).json({ error: "Service not found" });
-      }
-      const slots = generateSlots(business.openingTime, business.closingTime, service.durationMinutes);
-      // console.log(`Generated ${slots.length} slots for business ID ${id} on date ${date}`);
-      console.log("Sample slots:", slots); 
-      res.status(200).json(slots);
-    }catch(error){
-      console.error(`Error fetching available slots for business ID ${req.params.id}:`, error);
-      res.status(500).json({ error: error.message });
-    }
-  }
+  //     const userId = req.user.id;
+  //     const { serviceId } = req.params;
+  //   const business = await prisma.business.findUnique({
+  //     where: { ownerId: userId },
+  //     include: { services: true }
+  //   });
+  //     if (!business) {
+  //       console.log(`Business not found`);
+  //       return res.status(404).json({ error: "Business not found" });
+  //     }
+  //     console.log(`Fetched business`, business);
+  //     const service = business.services.find(s => s.id === parseInt(serviceId));
+  //     if (!service) {
+  //       console.log(`Service with ID ${serviceId} not found`);
+  //       return res.status(404).json({ error: "Service not found" });
+  //     }
+  //     const slots = generateSlots(business.openingTime, business.closingTime, service.durationMinutes);
+  //     // console.log(`Generated ${slots.length} slots for business ID ${id} on date ${date}`);
+  //     console.log("Sample slots:", slots);
+  //     res.status(200).json(slots);
+  //   }catch(error){
+  //     console.error(`Error fetching available slots for business ID ${req.params.id}:`, error);
+  //     res.status(500).json({ error: error.message });
+  //   }
+  // }
 };

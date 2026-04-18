@@ -85,7 +85,7 @@ export const paymentContoller = {
               }),
               prisma.booking.update({
                 where: { id: Number(bookingId) },
-                data: { status: "COMPLETED" },
+                data: { status: "BOOKED" },
               }),
               prisma.queueEntry.create({
                 data: {

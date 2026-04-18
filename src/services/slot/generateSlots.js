@@ -1,9 +1,9 @@
 import formatTime from "./formatTime.js";
 import roundUpToSlot from "./roundUpToSlot.js";
 
-export default function generateSlots(openingTime, closingTime, serviceTime) {
+export default function generateSlots(openingTime, closingTime, serviceTime, targetDate) {
   const slots = [];
-  const date = new Date();
+  const date = new Date(targetDate);
   const roundedServiceTime = roundUpToSlot(serviceTime);
 
   // Parse "09:00" into hours and minutes

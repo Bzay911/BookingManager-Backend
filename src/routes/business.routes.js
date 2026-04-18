@@ -11,6 +11,6 @@ router.post('/setup-business', businessController.setupBusiness);
 router.post('/send-otp', businessController.sendOtp);
 router.post('/verify-otp', businessController.verifyOtp);
 router.get('/get-business-by-owner', businessController.getBusinessByOwner);
-router.get('/get-available-slots/:serviceId', businessController.getAvaliableSlots);
+// router.get('/get-available-slots/:serviceId', businessController.getAvaliableSlots);
 
 export default router;
