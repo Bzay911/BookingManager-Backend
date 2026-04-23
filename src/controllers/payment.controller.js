@@ -14,7 +14,7 @@ export const paymentContoller = {
     let event;
     try {
       event = stripe.webhooks.constructEvent(
-        req.body, // ✅ this is raw buffer because of the route middleware
+        req.body, // this is raw buffer because of the route middleware
         sig,
         process.env.STRIPE_WEBHOOK_SECRET,
       );
@@ -50,6 +50,11 @@ export const paymentContoller = {
             const booking = await prisma.booking.findUnique({
               where: { id: Number(bookingId) },
             });
+
+            if (!booking) {
+              console.error("Webhook booking not found:", bookingId);
+              break;
+            }
 
             const bookingDate = new Date(booking.scheduledAt);
 
@@ -89,6 +94,7 @@ export const paymentContoller = {
               }),
               prisma.queueEntry.create({
                 data: {
+                  userId: booking.customerId,
                   position: nextPosition,
                   status: "WAITING",
                   bookingId: Number(bookingId),

@@ -3,7 +3,7 @@ import twilio from "twilio";
 import { generateReply } from "../services/ai/ai.service.js";
 import fetchAIContext from "../utils/FetchAiContext.js";
 import updateCustomerName from "../utils/UpdateCustomerName.js";
-import createBooking from "../services/ai/booking.service.js";
+import createBooking from "../services/ai/createBooking.js";
 import findOrCreateCustomer from "../utils/FindOrCreateCustomer.js";
 import sendReply from "../utils/SendReply.js";
 
@@ -69,7 +69,14 @@ export const bookingController = {
     if (aiResponse.type === "TOOL_CALL") {
       console.log("Ai trigerred the booking tool! Executing db logic");
 
-      await createBooking(aiResponse.args, customer, businessId);
+      await prisma.conversation.create({
+        data: {
+          customerPhone: phoneNumber,
+          businessId,
+          role: "assistant",
+          content: 'Booking confirmed! Payment link sent to customer.',
+        },
+      })
     } else {
       console.log("AI just sent a text response.");
       await sendReply(
