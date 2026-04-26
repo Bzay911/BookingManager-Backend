@@ -107,6 +107,7 @@ export const queueController = {
       closeAt.setHours(closeHour, closeMin, 0, 0);
 
       const now = new Date();
+      // dayStart is what the function returns and we are setting it to todayStart
       const { dayStart: todayStart } = getStartAndEndOfDay(now);
       const isToday = dayStart.getTime() === todayStart.getTime();
 
@@ -127,6 +128,8 @@ export const queueController = {
         service.durationMinutes,
         targetDate,
       );
+
+      console.log("Generated actual slots:", slots);
 
       const bookings = await prisma.booking.findMany({
         where: {
@@ -159,6 +162,7 @@ export const queueController = {
       const availableSlots = filterAvailableSlots(slots, bookings, fromTime);
 
       console.log("Available slots:", availableSlots);
+
       res.status(200).json({
         status: businessStatus,
         message: statusMessage,

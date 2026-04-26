@@ -26,14 +26,27 @@ async function getOrCreateStripeCustomer(customer) {
 async function createBooking(bookingArgs, customer, businessId) {
   try {
     // Load service so we have the price + business name
+    // TODO:
+    // need to test if multiple businesses have same service id or same service name
     const service = await prisma.service.findUnique({
       where: { id: bookingArgs.serviceId },
       include: { business: true },
     });
 
     if (!service) {
-      console.error("Service not found:", bookingArgs.serviceId);
-      return;
+      return {
+        ok: false,
+        code: "SERVICE_NOT_FOUND",
+        message: "We could not find that service.",
+      };
+    }
+
+    if (service.businessId !== businessId) {
+      return {
+        ok: false,
+        code: "SERVICE_BUSINESS_MISMATCH",
+        message: "That service does not belong to this business.",
+      };
     }
 
     // Create booking with PENDING status
@@ -81,7 +94,7 @@ async function createBooking(bookingArgs, customer, businessId) {
     });
 
     // Save Payment record in DB
-    await prisma.payment.create({
+    const payment = await prisma.payment.create({
       data: {
         stripePaymentIntentId: paymentLink.id, // real PI id will come via webhook
         amount: service.price,
@@ -100,9 +113,23 @@ async function createBooking(bookingArgs, customer, businessId) {
       body: `Great! Your booking is almost confirmed.\n\nTap here to complete your payment:\n${paymentLink.url}`,
     });
 
-
+    return {
+      ok: true,
+      code: "BOOKING_CREATED",
+      message: "Booking created and payment link sent.",
+      bookingId: booking.id,
+      paymentId: payment.id,
+      paymentLinkUrl: paymentLink.url,
+      serviceId: service.id,
+      scheduledAt: booking.scheduledAt.toISOString(),
+    };
   } catch (error) {
     console.error("Failed to create booking:", error.message);
+    return {
+      ok: false,
+      code: "BOOKING_CREATE_FAILED",
+      message: "Could not complete the booking right now.",
+    };
   }
 }
 

@@ -3,12 +3,10 @@ import twilio from "twilio";
 import { generateReply } from "../services/ai/ai.service.js";
 import fetchAIContext from "../utils/FetchAiContext.js";
 import updateCustomerName from "../utils/UpdateCustomerName.js";
-import createBooking from "../services/ai/createBooking.js";
 import findOrCreateCustomer from "../utils/FindOrCreateCustomer.js";
 import sendReply from "../utils/SendReply.js";
 
 const { MessagingResponse } = twilio.twiml;
-
 
 // Helper Functions
 async function extractBusinessId(incomingMessage, phoneNumber) {
@@ -52,12 +50,15 @@ export const bookingController = {
     const { history, business } = await fetchAIContext(phoneNumber, businessId);
 
     // check if customer just provided their name
-    customer = await updateCustomerName( // also maybe create a tool for checking if the name is legit
-      customer,
-      history,
-      incomingMessage,
-      phoneNumber,
-    );
+    if (!customer.displayName) {
+      customer = await updateCustomerName(
+        // also maybe create a tool for checking if the name is legit
+        customer,
+        history,
+        incomingMessage,
+        phoneNumber,
+      );
+    }
 
     const aiResponse = await generateReply({
       history,
@@ -66,26 +67,16 @@ export const bookingController = {
       customer,
     });
 
-    if (aiResponse.type === "TOOL_CALL") {
-      console.log("Ai trigerred the booking tool! Executing db logic");
-
-      await prisma.conversation.create({
-        data: {
-          customerPhone: phoneNumber,
-          businessId,
-          role: "assistant",
-          content: 'Booking confirmed! Payment link sent to customer.',
-        },
-      })
-    } else {
-      console.log("AI just sent a text response.");
-      await sendReply(
-        customerPhone,
-        phoneNumber,
+    await prisma.conversation.create({
+      data: {
+        customerPhone: phoneNumber,
         businessId,
-        aiResponse.content,
-      );
-    }
+        role: "assistant",
+        content: aiResponse.content,
+      },
+    });
+    console.log("AI just sent a text response.");
+    await sendReply(customerPhone, phoneNumber, businessId, aiResponse.content);
     // 9. acknowledge twilio webhook
     const twiml = new MessagingResponse();
     return res.type("text/xml").send(twiml.toString());
