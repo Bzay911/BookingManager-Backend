@@ -191,8 +191,8 @@ export const businessController = {
   },
 
   async getBusinessByOwner(req, res) {
-    const userId = req.user.id;
     try {
+      const userId = req.user.id;
       // Change findUnique to findMany to get an ARRAY
       const businesses = await prisma.business.findMany({
         where: { ownerId: userId },

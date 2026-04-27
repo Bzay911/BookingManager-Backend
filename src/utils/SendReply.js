@@ -14,17 +14,6 @@ async function sendReply(customerPhone, phoneNumber, businessId, cleanReply) {
       to: customerPhone,
       body: cleanReply,
     });
-
-    await prisma.conversation.create({
-      data: {
-        customerPhone: phoneNumber,
-        businessId,
-        role: "assistant",
-        content: cleanReply,
-      },
-    });
-
-    console.log("Reply sent successfully");
   } catch (error) {
     console.error("Failed to send reply:", error.message);
   }

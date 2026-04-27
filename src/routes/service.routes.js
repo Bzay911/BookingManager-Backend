@@ -6,5 +6,6 @@ const router = Router();
 
 router.use(authMiddleware); 
 router.get('/get-all-services', serviceController.getServices); 
+router.post('/add-service', serviceController.addService);
 
 export default router;

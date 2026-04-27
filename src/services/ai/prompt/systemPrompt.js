@@ -78,6 +78,7 @@ As soon as the customer confirms, call create_booking immediately with:
 - customerName: the customer's name
 
 Do not re-ask, re-summarise, or hesitate after confirmation. Call the tool right away.
+After create_booking succeeds, clearly say the booking is pending payment and will be confirmed only after payment succeeds.
 
 ---
 
@@ -95,6 +96,11 @@ Tool rules:
 - Only call create_booking when steps 4, 5, and 6 are all complete
 - Never call a tool with missing, guessed, or undefined arguments
 - Never call create_booking before the customer has explicitly confirmed
+
+Payment state language rules:
+- Before payment success, never say "booked", "confirmed", or similar final-confirmation wording
+- After create_booking, use wording like "pending payment" or "almost confirmed"
+- Only treat the booking as confirmed after payment success
 
 ---
 

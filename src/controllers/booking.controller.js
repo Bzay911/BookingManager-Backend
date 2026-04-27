@@ -1,6 +1,6 @@
 import prisma from "../lib/prisma.js";
 import twilio from "twilio";
-import { generateReply } from "../services/ai/ai.service.js";
+import { generateReply } from "../services/ai/generateReply.js";
 import fetchAIContext from "../utils/FetchAiContext.js";
 import updateCustomerName from "../utils/UpdateCustomerName.js";
 import findOrCreateCustomer from "../utils/FindOrCreateCustomer.js";
@@ -8,7 +8,6 @@ import sendReply from "../utils/SendReply.js";
 
 const { MessagingResponse } = twilio.twiml;
 
-// Helper Functions
 async function extractBusinessId(incomingMessage, phoneNumber) {
   const businessIdMatch = incomingMessage.match(/BUSINESS:(\d+)/);
 
@@ -29,14 +28,10 @@ export const bookingController = {
     const incomingMessage = req.body.Body;
     const customerPhone = req.body.From;
     const phoneNumber = customerPhone.replace("whatsapp:", "");
-
-    // figure out which business
     const businessId = await extractBusinessId(incomingMessage, phoneNumber);
 
-    // who is texting
     let customer = await findOrCreateCustomer(phoneNumber);
 
-    // save incoming message to DB
     await prisma.conversation.create({
       data: {
         customerPhone: phoneNumber,
@@ -46,13 +41,10 @@ export const bookingController = {
       },
     });
 
-    // fetch context for AI
     const { history, business } = await fetchAIContext(phoneNumber, businessId);
 
-    // check if customer just provided their name
     if (!customer.displayName) {
       customer = await updateCustomerName(
-        // also maybe create a tool for checking if the name is legit
         customer,
         history,
         incomingMessage,
@@ -75,9 +67,9 @@ export const bookingController = {
         content: aiResponse.content,
       },
     });
-    console.log("AI just sent a text response.");
+
     await sendReply(customerPhone, phoneNumber, businessId, aiResponse.content);
-    // 9. acknowledge twilio webhook
+
     const twiml = new MessagingResponse();
     return res.type("text/xml").send(twiml.toString());
   },
@@ -103,10 +95,7 @@ export const bookingController = {
         },
       });
 
-      console.log("Fetched bookings for business id", bookings);
-
-      if (!bookings) {
-        console.log("No bookings found for buiness id", business.id);
+      if (!bookings.length) {
         return res
           .status(404)
           .json({ error: "No bookings found for this business" });
@@ -114,7 +103,6 @@ export const bookingController = {
 
       return res.json(bookings);
     } catch (error) {
-      console.error("Failed to fetch bookings:", error.message);
       return res.status(500).json({ error: "Failed to fetch bookings" });
     }
   },

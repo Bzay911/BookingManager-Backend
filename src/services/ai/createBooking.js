@@ -115,12 +115,12 @@ async function createBooking(bookingArgs, customer, businessId) {
 
     return {
       ok: true,
-      code: "BOOKING_CREATED",
-      message: "Booking created and payment link sent.",
+      code: "BOOKING_PENDING_PAYMENT",
+      message: "Booking request saved. Payment link sent. Booking is confirmed only after payment succeeds.",
       bookingId: booking.id,
-      paymentId: payment.id,
-      paymentLinkUrl: paymentLink.url,
-      serviceId: service.id,
+      // paymentId: payment.id,
+      // paymentLinkUrl: paymentLink.url,
+      // serviceId: service.id,
       scheduledAt: booking.scheduledAt.toISOString(),
     };
   } catch (error) {
