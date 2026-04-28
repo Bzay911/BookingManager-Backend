@@ -2,6 +2,7 @@ import prisma from "../lib/prisma.js";
 import generateSlots from "../services/slot/generateSlots.js";
 import filterAvailableSlots from "../services/slot/filterAvailableSlots.js";
 import getStartAndEndOfDay from "../utils/getStartAndEndOfDay.js";
+// import { getIO } from "../socket/socket.js";
 
 export const queueController = {
   async getLiveQueue(req, res) {

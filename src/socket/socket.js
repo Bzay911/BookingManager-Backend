@@ -20,6 +20,11 @@ export const initSocket = (httpServer) => {
       console.log(`Socket ${socket.id} joined room business:${businessId}`);
     });
 
+    socket.on('leave:business', (businessId) => {
+      socket.leave(`business:${businessId}`);
+      console.log(`Socket ${socket.id} left room business:${businessId}`);
+    });
+
     socket.on('disconnect', () => {
       console.log('Socket disconnected:', socket.id);
     });
