@@ -1,12 +1,6 @@
-import twilio from "twilio";
-import prisma from "../lib/prisma.js";
+import { client } from "./twilio.js";
 
 async function sendReply(customerPhone, phoneNumber, businessId, cleanReply) {
-
-    const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN,
-);
 
   try {
     await client.messages.create({

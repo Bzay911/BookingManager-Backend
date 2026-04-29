@@ -4,7 +4,8 @@ import { generateReply } from "../services/ai/generateReply.js";
 import fetchAIContext from "../utils/FetchAiContext.js";
 import updateCustomerName from "../utils/UpdateCustomerName.js";
 import findOrCreateCustomer from "../utils/FindOrCreateCustomer.js";
-import sendReply from "../utils/SendReply.js";
+import sendReply from "../utils/twilio/SendReply.js";
+import { sendTypingIndicator } from "../utils/twilio/sendTypingIndicator.js";
 
 const { MessagingResponse } = twilio.twiml;
 
@@ -29,6 +30,9 @@ export const bookingController = {
     const customerPhone = req.body.From;
     const phoneNumber = customerPhone.replace("whatsapp:", "");
     const businessId = await extractBusinessId(incomingMessage, phoneNumber);
+    const incomingMessageSid = req.body.MessageSid;
+
+    console.log("Incoming message body:", req.body);
 
     let customer = await findOrCreateCustomer(phoneNumber);
 
@@ -40,6 +44,8 @@ export const bookingController = {
         content: incomingMessage,
       },
     });
+
+    await sendTypingIndicator(incomingMessageSid);
 
     const { history, business } = await fetchAIContext(phoneNumber, businessId);
 
