@@ -11,7 +11,7 @@ export async function generateReply({
   customer,
 }) {
   const bookingAgent = new ToolLoopAgent({
-    model: google("gemini-3-flash-preview"),
+    model: google("gemini-3.1-flash-lite-preview"),
     instructions: bookingSystemPrompt(business, customer),
     tools: {
       create_booking: createBookingTool(business, customer),

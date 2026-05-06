@@ -1,6 +1,7 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import worker from './src/lib/worker.js';
 import { createServer } from 'http';
 import {initSocket} from './src/socket/socket.js';
 import authRoutes from "./src/routes/auth.routes.js";
@@ -10,7 +11,7 @@ import bookingRoutes from "./src/routes/booking.routes.js";
 import paymentRoutes from "./src/routes/payment.routes.js";
 import queueRoutes from "./src/routes/queue.routes.js";
 
-dotenv.config();
+// dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8000;

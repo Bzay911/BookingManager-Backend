@@ -25,7 +25,7 @@ export const queueController = {
       const liveQueue = await prisma.queueEntry.findMany({
         where: {
           businessId: business.id,
-          status: { not: "DONE" }, // exclude finished entries
+          status: "WAITING", // exclude finished entries
           booking: {
             scheduledAt: {
               gte: todayStart, // from midnight
@@ -227,7 +227,7 @@ export const queueController = {
           console.log("Recurring user found:", user.displayName);
         }
 
-        // 3. Check for double-booking (Optional but recommended)
+        // 3. Check for double-booking
         const existingBooking = await tx.booking.findFirst({
           where: {
             businessId: business.id,
@@ -295,6 +295,99 @@ export const queueController = {
       return res.status(201).json(result);
     } catch (err) {
       console.error("Error in addWalkins:", err.message);
+      res.status(400).json({ error: err.message });
+    }
+  },
+
+  async markQueueStatus(req, res) {
+    try {
+      const userId = req.user.id;
+      const { queueEntryId } = req.params;
+      const { status } = req.body; // 'DONE' or 'REMOVED'
+
+      console.log(`Marking queue entry ${queueEntryId} as ${status}`);  
+
+      // Validate action
+      if (!['DONE', 'REMOVED'].includes(status)) {
+        return res.status(400).json({ error: "Status must be DONE or REMOVED" });
+      }
+
+      // Verify business ownership
+      const business = await prisma.business.findFirst({
+        where: { ownerId: userId },
+      });
+
+      if (!business) {
+        return res.status(404).json({ error: "Business not found" });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        // 1. Get the queue entry
+        const queueEntry = await tx.queueEntry.findUnique({
+          where: { id: parseInt(queueEntryId) },
+          include: { booking: true },
+        });
+
+        if (!queueEntry || queueEntry.businessId !== business.id) {
+          throw new Error("Queue entry not found or unauthorized");
+        }
+
+        // 2. Update queue entry status
+        const updatedEntry = await tx.queueEntry.update({
+          where: { id: parseInt(queueEntryId) },
+          data: { status: status },
+        });
+
+        // 3. Update booking status if DONE
+        if (status === 'DONE' && queueEntry.bookingId) {
+          await tx.booking.update({
+            where: { id: queueEntry.bookingId },
+            data: { status: 'COMPLETED' },
+          });
+        }
+
+        // 4. Reposition remaining queue entries
+        const remainingEntries = await tx.queueEntry.findMany({
+          where: {
+            businessId: business.id,
+            status: { in: ['WAITING'] },  // only active entries
+            position: { gt: queueEntry.position },
+          },
+          orderBy: { position: 'asc' },
+        });
+
+        for (const entry of remainingEntries) {
+          await tx.queueEntry.update({
+            where: { id: entry.id },
+            data: { position: entry.position - 1 },
+          });
+        }
+
+        // 5. Get the next person in queue for notification
+        // const nextInQueue = await tx.queueEntry.findFirst({
+        //   where: {
+        //     businessId: business.id,
+        //     status: 'WAITING',
+        //     position: 1,
+        //   },
+        //   include: { user: true, booking: true },
+        // });
+
+        return {
+          updatedEntry,
+          // nextInQueue,
+        };
+      });
+
+      // TODO: Emit socket event to notify next person
+      // const io = getIO();
+      // if (result.nextInQueue) {
+      //   io.to(`user_${result.nextInQueue.userId}`).emit('your_turn', {...});
+      // }
+
+      return res.status(200).json(result);
+    } catch (err) {
+      console.error("Error marking queue status:", err.message);
       res.status(400).json({ error: err.message });
     }
   },

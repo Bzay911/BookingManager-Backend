@@ -45,6 +45,7 @@ export const bookingController = {
       },
     });
 
+    // got the message, now send the typing indicator while we process the AI response
     await sendTypingIndicator(incomingMessageSid);
 
     const { history, business } = await fetchAIContext(phoneNumber, businessId);
