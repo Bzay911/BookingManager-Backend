@@ -5,6 +5,8 @@ async function findOrCreateCustomer(phoneNumber) {
     where: { phoneNumber },
   });
 
+  console.log("Customer lookup for phone number:", phoneNumber, "Result:", customer);
+  
   if (!customer) {
     customer = await prisma.user.create({
       data: {

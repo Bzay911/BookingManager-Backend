@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,7 +6,136 @@ datasource db {
   provider = "postgresql"
 }
 
-// ENUMS
+model User {
+  id               Int          @id @default(autoincrement())
+  displayName      String?
+  email            String?      @unique
+  googleId         String?      @unique
+  phoneNumber      String?      @unique
+  profileImage     String?
+  role             Role?
+  isOnboarded      Boolean      @default(false)
+  onboardedAt      DateTime?
+  stripeCustomerId String?      @unique
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  bookings         Booking[]
+  business         Business?
+  queueEntries     QueueEntry[]
+}
+
+model Business {
+  id                     Int            @id @default(autoincrement())
+  businessName           String
+  description            String?
+  businessProfileImage   String?
+  businessAddress        String
+  businessPhoneNumber    String
+  businessEmail          String
+  openingTime            String
+  closingTime            String
+  cancellationFeePercent Float          @default(0)
+  stripeAccountId        String?        @unique
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  ownerId                Int            @unique
+  bookings               Booking[]
+  owner                  User           @relation(fields: [ownerId], references: [id])
+  conversations          Conversation[]
+  payments               Payment[]
+  queueEntries           QueueEntry[]
+  services               Service[]
+}
+
+model Service {
+  id              Int       @id @default(autoincrement())
+  service         String?
+  price           Float
+  durationMinutes Int
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  businessId      Int
+  bookings        Booking[]
+  business        Business  @relation(fields: [businessId], references: [id])
+}
+
+model Booking {
+  id                     Int           @id @default(autoincrement())
+  scheduledAt            DateTime
+  status                 BookingStatus @default(PENDING)
+  cancellationFeeCharged Float?
+  cancelledAt            DateTime?
+  stripePaymentIntentId  String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  customerId             Int
+  businessId             Int
+  serviceId              Int
+  business               Business      @relation(fields: [businessId], references: [id])
+  customer               User          @relation(fields: [customerId], references: [id])
+  service                Service       @relation(fields: [serviceId], references: [id])
+  payment                Payment?
+  queueEntry             QueueEntry?
+}
+
+model QueueEntry {
+  id         Int         @id @default(autoincrement())
+  position   Int
+  status     QueueStatus @default(WAITING)
+  joinedAt   DateTime    @default(now())
+  bookingId  Int?        @unique
+  userId     Int
+  businessId Int
+  booking    Booking?    @relation(fields: [bookingId], references: [id])
+  business   Business    @relation(fields: [businessId], references: [id])
+  user       User        @relation(fields: [userId], references: [id])
+}
+
+model Payment {
+  id                    Int           @id @default(autoincrement())
+  stripePaymentIntentId String?       @unique
+  amount                Float
+  currency              String        @default("aud")
+  status                PaymentStatus @default(PENDING)
+  type                  PaymentType   @default(BOOKING)
+  stripeChargeId        String?
+  receiptUrl            String?
+  failureReason         String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  bookingId             Int           @unique
+  businessId            Int
+  booking               Booking       @relation(fields: [bookingId], references: [id])
+  business              Business      @relation(fields: [businessId], references: [id])
+}
+
+model StripeWebhookEvent {
+  id            Int      @id @default(autoincrement())
+  stripeEventId String   @unique
+  type          String
+  processedAt   DateTime @default(now())
+}
+
+model Conversation {
+  id            Int                @id @default(autoincrement())
+  customerPhone String
+  businessId    Int
+  status        ConversationStatus @default(ACTIVE)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  business      Business           @relation(fields: [businessId], references: [id])
+  messages      Message[]
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  conversationId Int
+  role           String
+  content        String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+}
+
 enum Role {
   CUSTOMER
   BUSINESS
@@ -35,133 +163,11 @@ enum PaymentStatus {
 }
 
 enum PaymentType {
-  BOOKING // standard service payment
-  CANCELLATION_FEE //charged when customer cancels late
+  BOOKING
+  CANCELLATION_FEE
 }
 
-// USER
-model User {
-  id           Int      @id @default(autoincrement())
-  displayName         String?
-  email        String?   @unique
-  googleId String? @unique
-  phoneNumber String? @unique
-  profileImage String?
-  role         Role?     
-  isOnboarded  Boolean @default(false)
-  onboardedAt  DateTime?
-  stripeCustomerId String? @unique    
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  business     Business?     // these are relations only if role = Business
-  bookings Booking[] // only if role = CUSTOMER
-  queueEntries QueueEntry[]
-}
-
-// Business
-model Business {
-  id                     Int      @id @default(autoincrement())
-  businessName                   String
-  description            String?
-  businessProfileImage           String?
-  businessAddress                String
-  businessPhoneNumber                  String
-  businessEmail                  String
-  openingTime            String   // e.g. "09:00"
-  closingTime            String   // e.g. "18:00"
-  cancellationFeePercent Float    @default(0) // e.g. 20 = 20%
-  stripeAccountId        String? @unique
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  ownerId Int   @unique
-  owner   User  @relation(fields: [ownerId], references: [id])
-  services      Service[]
-  bookings      Booking[]
-  queueEntries  QueueEntry[]
-  conversations Conversation[]
-  payments      Payment[]
-}
-
-// SERVICE
-model Service {
-  id              Int      @id @default(autoincrement())
-  service            String?  
-  price           Float    // e.g. 20.00
-  durationMinutes Int      // e.g. 30
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  businessId Int
-  business   Business @relation(fields: [businessId], references: [id])
-  bookings Booking[]
-}
-
-// BOOKING
-model Booking {
-  id                     Int           @id @default(autoincrement())
-  scheduledAt            DateTime      // date + time of appointment
-  status                 BookingStatus @default(PENDING)
-  cancellationFeeCharged Float?        // actual $ amount charged e.g. 4.00
-  cancelledAt            DateTime?     // when they cancelled
-  stripePaymentIntentId  String?
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
-  customerId Int
-  customer   User @relation(fields: [customerId], references: [id])
-  businessId Int
-  business   Business @relation(fields: [businessId], references: [id])
-  serviceId Int
-  service   Service @relation(fields: [serviceId], references: [id])
-  queueEntry QueueEntry? // one booking = one queue entry
-  payment Payment?
-}
-
-// QUEUE ENTRY
-model QueueEntry {
-  id       Int         @id @default(autoincrement())
-  position Int         // 1st, 2nd, 3rd in queue
-  status   QueueStatus @default(WAITING)
-  joinedAt DateTime    @default(now())
-  bookingId Int? @unique // one to one with Booking
-  booking   Booking? @relation(fields: [bookingId], references: [id])
-  userId Int
-  user User @relation(fields: [userId], references: [id])
-  businessId Int
-  business   Business @relation(fields: [businessId], references: [id])
-}
-
-model Payment {
-  id                    Int           @id @default(autoincrement())
-  stripePaymentIntentId String?        @unique // pi_xxx
-  amount                Float         // in dollars e.g. 25.00
-  currency              String        @default("aud")
-  status                PaymentStatus @default(PENDING)
-  type                  PaymentType   @default(BOOKING)
-  stripeChargeId        String?       // ch_xxx — available after charge succeeds
-  receiptUrl            String?       // Stripe-hosted receipt link
-  failureReason         String?       // populated if status = FAILED
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-  bookingId             Int @unique
-  booking               Booking       @relation(fields: [bookingId], references: [id])
-  businessId            Int
-  business              Business      @relation(fields: [businessId], references: [id])
-}
-
-model StripeWebhookEvent {
-  id          Int      @id @default(autoincrement())
-  stripeEventId String @unique // evt_xxx — prevents processing twice
-  type        String           // e.g. "payment_intent.succeeded"
-  processedAt DateTime @default(now())
-}
-
-// CONVERSATION
-model Conversation {
-  id            Int      @id @default(autoincrement())
-  customerPhone String
-  businessId    Int
-  role          String   // 'user' or 'assistant'
-  content       String
-  createdAt     DateTime @default(now())
-
-  business Business @relation(fields: [businessId], references: [id])
+enum ConversationStatus {
+  ACTIVE
+  COMPLETED
 }

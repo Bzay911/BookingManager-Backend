@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import twilio from "twilio";
 import { connection } from "./queue.js";
-import prisma from "./prisma.js"; // your DB client
+import prisma from "./prisma.js"; 
 
 const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -23,10 +23,12 @@ const worker = new Worker(
       return;
     }
 
+    console.log(`Fetched booking:`, booking);
+
     await client.messages.create({
-      from: process.env.TWILIO_WHATSAPP_NUMBER,
-      to: `whatsapp:${booking.customer.phone}`,
-      body: `Hi ${booking.customer.name}! 👋 Your booking *${booking.service.name}* starts in 15 minutes. See you soon!`,
+      from: "whatsapp:+14155238886", // its universal only the join code differs
+      to: `whatsapp:${booking.customer.phoneNumber}`,
+      body: `Hi ${booking.customer.displayName}! 👋 Your booking *${booking.service.service}* starts in 15 minutes. See you soon!`,
     });
   },
   {

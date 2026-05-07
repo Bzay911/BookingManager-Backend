@@ -1,8 +1,9 @@
 import prisma from "../lib/prisma.js";
 import stripe from "../lib/stripe.js";
 import twilio from "twilio";
-import { getIO } from "../socket/socket.js";
+import { getIO } from "../services/socket/socket.js";
 import getStartAndEndOfDay from "../utils/getStartAndEndOfDay.js";
+import { scheduleReminder } from "../lib/scheduleReminder.js";
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -73,14 +74,15 @@ export const paymentContoller = {
                 businessId: booking.businessId,
                 status: "WAITING",
                 booking: {
-                  scheduledAt: { gte: dayStart, lte: dayEnd }
-                }
+                  scheduledAt: { gte: dayStart, lte: dayEnd },
+                },
               },
-              orderBy: { position: "desc" }
+              orderBy: { position: "desc" },
             });
 
-            const nextPosition = lastQueueEntry ? lastQueueEntry.position + 1 : 1;
-
+            const nextPosition = lastQueueEntry
+              ? lastQueueEntry.position + 1
+              : 1;
 
             await prisma.$transaction([
               prisma.payment.update({
@@ -104,6 +106,9 @@ export const paymentContoller = {
                 },
               }),
             ]);
+
+            // schedule reminder for the booking
+            await scheduleReminder(booking);
 
             // Fetch the created queue entry with full relations for socket emission
             const queueEntry = await prisma.queueEntry.findUnique({
@@ -130,14 +135,22 @@ export const paymentContoller = {
             });
 
             // Check if the booking is for today
-            const { dayStart: todayStart, dayEnd: todayEnd } = getStartAndEndOfDay(new Date());
-            const isBookingToday = queueEntry.booking.scheduledAt >= todayStart && queueEntry.booking.scheduledAt <= todayEnd;
+            const { dayStart: todayStart, dayEnd: todayEnd } =
+              getStartAndEndOfDay(new Date());
+            const isBookingToday =
+              queueEntry.booking.scheduledAt >= todayStart &&
+              queueEntry.booking.scheduledAt <= todayEnd;
 
             // Emit socket event only if booking is for today
             if (isBookingToday) {
               const io = getIO();
-              io.to(`business:${booking.businessId}`).emit('queue:user-added', queueEntry);
-              console.log(`Emitted queue:user-added to room business:${booking.businessId}`);
+              io.to(`business:${booking.businessId}`).emit(
+                "queue:user-added",
+                queueEntry,
+              );
+              console.log(
+                `Emitted queue:user-added to room business:${booking.businessId}`,
+              );
             }
 
             const customer = await prisma.user.findUnique({

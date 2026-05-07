@@ -10,6 +10,7 @@ export async function generateReply({
   incomingMessage,
   customer,
 }) {
+  // console.log("Generating AI reply with history:", history, "business:", business, "customer:", customer);
   const bookingAgent = new ToolLoopAgent({
     model: google("gemini-2.5-flash-lite"),
     instructions: bookingSystemPrompt(business, customer),

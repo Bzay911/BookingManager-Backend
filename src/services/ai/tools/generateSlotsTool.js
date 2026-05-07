@@ -50,6 +50,8 @@ export const generateTimeslotsTool = (business) => tool({
           requestedDateTime,
         );
 
+        console.log("Generated slots for service", service.name, "at", requestedDateTime, "Slots:", slots);
+
         const bookings = await prisma.booking.findMany({
           where: {
             businessId: business.id,
@@ -78,6 +80,7 @@ export const generateTimeslotsTool = (business) => tool({
           label: slot.label,
         }));
 
+        console.log("Available slots after filtering:", availableSlots);
 
         return {
           ok: true,

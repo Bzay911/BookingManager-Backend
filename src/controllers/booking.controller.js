@@ -1,11 +1,11 @@
 import prisma from "../lib/prisma.js";
 import twilio from "twilio";
 import { generateReply } from "../services/ai/generateReply.js";
-import fetchAIContext from "../utils/FetchAiContext.js";
 import updateCustomerName from "../utils/UpdateCustomerName.js";
 import findOrCreateCustomer from "../utils/FindOrCreateCustomer.js";
-import sendReply from "../utils/twilio/SendReply.js";
-import { sendTypingIndicator } from "../utils/twilio/sendTypingIndicator.js";
+import sendReply from "../services/twilio/SendReply.js";
+import { sendTypingIndicator } from "../services/twilio/sendTypingIndicator.js";
+import findOrCreateConversation from "../utils/FindOrCreateConversation.js";
 
 const { MessagingResponse } = twilio.twiml;
 
@@ -17,11 +17,20 @@ async function extractBusinessId(incomingMessage, phoneNumber) {
   }
 
   const lastConvo = await prisma.conversation.findFirst({
-    where: { customerPhone: phoneNumber },
+    where: { customerPhone: phoneNumber, status: "ACTIVE" },
     orderBy: { createdAt: "desc" },
   });
 
   return lastConvo?.businessId ?? null;
+}
+
+async function fetchBusiness(businessId) {
+  if (!businessId) return null;
+
+  return prisma.business.findUnique({
+    where: { id: businessId },
+    include: { services: true },
+  });
 }
 
 export const bookingController = {
@@ -32,23 +41,38 @@ export const bookingController = {
     const businessId = await extractBusinessId(incomingMessage, phoneNumber);
     const incomingMessageSid = req.body.MessageSid;
 
-    console.log("Incoming message body:", req.body);
-
     let customer = await findOrCreateCustomer(phoneNumber);
 
-    await prisma.conversation.create({
+    const conversation = await findOrCreateConversation(
+      phoneNumber,
+      businessId,
+    );
+
+    await prisma.message.create({
       data: {
-        customerPhone: phoneNumber,
-        businessId,
+        conversationId: conversation.id,
         role: "user",
         content: incomingMessage,
       },
     });
 
-    // got the message, now send the typing indicator while we process the AI response
-    await sendTypingIndicator(incomingMessageSid);
+    // re-fetch messages after saving so history is always complete and in order
+    const messages = await prisma.message.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: { createdAt: "asc" },
+    });
 
-    const { history, business } = await fetchAIContext(phoneNumber, businessId);
+    const business = await fetchBusiness(businessId);
+
+    const history = messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    // console.log("Conversation history:", history);
+
+    // got the message, now send the typing indicator while we process the AI response
+    // await sendTypingIndicator(incomingMessageSid);
 
     if (!customer.displayName) {
       customer = await updateCustomerName(
@@ -68,10 +92,9 @@ export const bookingController = {
 
     console.log("AI response:", aiResponse);
 
-    await prisma.conversation.create({
+    await prisma.message.create({
       data: {
-        customerPhone: phoneNumber,
-        businessId,
+        conversationId: conversation.id,
         role: "assistant",
         content: aiResponse.content,
       },
@@ -104,6 +127,7 @@ export const bookingController = {
         },
       });
 
+      console.log("bookings", bookings);
       if (!bookings.length) {
         return res
           .status(404)

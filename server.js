@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import worker from './src/lib/worker.js';
 import { createServer } from 'http';
-import {initSocket} from './src/socket/socket.js';
+import {initSocket} from "./src/services/socket/socket.js";
 import authRoutes from "./src/routes/auth.routes.js";
 import businessRoutes from "./src/routes/business.routes.js";
 import serviceRoutes from "./src/routes/service.routes.js";

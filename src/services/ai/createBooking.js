@@ -1,5 +1,4 @@
 import prisma from "../../lib/prisma.js";
-import { scheduleReminder } from "../../lib/scheduleReminder.js";
 import stripe from "../../lib/stripe.js";
 import twilio from "twilio";
 
@@ -61,8 +60,6 @@ async function createBooking(bookingArgs, customer, businessId) {
       },
     });
 
-    // schedule reminder
-    await scheduleReminder(booking);
 
     // Get or create Stripe customer
     const stripeCustomerId = await getOrCreateStripeCustomer(customer);
