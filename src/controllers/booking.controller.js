@@ -66,6 +66,8 @@ export const bookingController = {
       customer,
     });
 
+    console.log("AI response:", aiResponse);
+
     await prisma.conversation.create({
       data: {
         customerPhone: phoneNumber,
