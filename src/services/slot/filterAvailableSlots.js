@@ -5,7 +5,6 @@ import roundUpToSlot from "./roundUpToSlot.js";
 // Also won't return any slots that are in the past
 
 export default function filterAvailableSlots(slots, bookings, fromTime) {
-  console.log('bookings to block:', bookings);
   const blockedWindows = bookings.map((booking) => {
     const bookedSlotSize = roundUpToSlot(booking.service.durationMinutes);
     const blockStart     = new Date(booking.scheduledAt);
@@ -27,4 +26,4 @@ export default function filterAvailableSlots(slots, bookings, fromTime) {
 
     return !hasConflict;
   });
-};
+}; 

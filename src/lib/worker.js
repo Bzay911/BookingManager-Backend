@@ -28,7 +28,7 @@ const worker = new Worker(
     await client.messages.create({
       from: "whatsapp:+14155238886", // its universal only the join code differs
       to: `whatsapp:${booking.customer.phoneNumber}`,
-      body: `Hi ${booking.customer.displayName}! 👋 Your booking *${booking.service.service}* starts in 15 minutes. See you soon!`,
+      body: `Hi ${booking.customer.displayName}! 👋 Your booking for *${booking.service.service}* starts in 15 minutes. See you soon!`,
     });
   },
   {

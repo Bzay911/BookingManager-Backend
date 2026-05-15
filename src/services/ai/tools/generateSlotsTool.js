@@ -8,13 +8,14 @@ import filterAvailableSlots from "../../slot/filterAvailableSlots.js";
 export const generateTimeslotsTool = (business) => tool({
         description:
         "Checks availability for a service at a requested datetime and returns future available slots.",
-      parameters: z.object({
+      inputSchema: z.object({
         serviceId: z.number().int().describe("The ID of the service"),
         scheduledAt: z
           .string()
           .describe("ISO datetime e.g. 2026-03-25T15:00:00"),
       }),
       execute: async ({ serviceId, scheduledAt }) => {
+        console.log("🔧 generateTimeslotsTool executed");
         if (!serviceId || !scheduledAt) {
           return {
             ok: false,
@@ -23,6 +24,7 @@ export const generateTimeslotsTool = (business) => tool({
           };
         }
 
+        console.log("Received args:", { serviceId, scheduledAt });   
         const requestedDateTime = new Date(scheduledAt);
         if (Number.isNaN(requestedDateTime.getTime())) {
           return {
@@ -55,7 +57,7 @@ export const generateTimeslotsTool = (business) => tool({
         const bookings = await prisma.booking.findMany({
           where: {
             businessId: business.id,
-            status: { not: "CANCELLED" },
+            status: "BOOKED",
             scheduledAt: {
               gte: dayStart,
               lte: dayEnd,
@@ -70,10 +72,14 @@ export const generateTimeslotsTool = (business) => tool({
           },
         });
 
+        // we are doing this so only future times are given
+       const now = new Date();
+       const fromTime = requestedDateTime > now ? requestedDateTime : now;
+
         const availableSlots = filterAvailableSlots(
           slots,
           bookings,
-          requestedDateTime,
+          fromTime,
         ).map((slot) => ({
           start: slot.start.toISOString(),
           end: slot.end.toISOString(),

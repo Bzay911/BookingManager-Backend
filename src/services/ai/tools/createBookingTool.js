@@ -6,11 +6,12 @@ export const createBookingTool = (business, customer) =>
   tool({
     description:
       "Creates a booking when the customer confirms the service and time they want.",
-    parameters: z.object({
+    inputSchema: z.object({
       serviceId: z.number().int().describe("The ID of the service to book"),
       scheduledAt: z.string().describe("ISO datetime e.g. 2026-03-25T15:00:00"),
     }),
     execute: async ({ serviceId, scheduledAt }) => {
+      console.log("🔧 createBookingTool executed");
       if (!serviceId || !scheduledAt) {
         console.warn("create_booking tool called with incomplete args:", {
           serviceId,

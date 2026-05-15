@@ -64,15 +64,45 @@ export const bookingController = {
 
     const business = await fetchBusiness(businessId);
 
-    const history = messages.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+const history = messages.map((msg) => {
+  if (msg.role === "tool_call") {
+    const parsed = JSON.parse(msg.content);
+    return {
+      role: "assistant",
+      content: [
+        {
+          type: "tool-call",
+          toolCallId: parsed.toolCallId,
+          toolName: parsed.name,
+          args: parsed.input,        // ToolCallPart uses args
+        },
+      ],
+    };
+  }
 
-    // console.log("Conversation history:", history);
+if (msg.role === "tool_result") {
+  const parsed = JSON.parse(msg.content);
+  return {
+    role: "tool",
+    content: [
+      {
+        type: "tool-result",
+        toolCallId: parsed.toolCallId,
+        toolName: parsed.name,
+        output: { type: "json", value: parsed.output }, // wrap here
+      },
+    ],
+  };
+}
+
+  return {
+    role: msg.role,
+    content: msg.content,
+  };
+});
 
     // got the message, now send the typing indicator while we process the AI response
-    // await sendTypingIndicator(incomingMessageSid);
+    await sendTypingIndicator(incomingMessageSid);
 
     if (!customer.displayName) {
       customer = await updateCustomerName(
@@ -83,6 +113,9 @@ export const bookingController = {
       );
     }
 
+    console.log("Message history for AI:", history);
+    console.log("Message history for AI:", JSON.stringify(history, null, 2));
+
     const aiResponse = await generateReply({
       history,
       business,
@@ -91,6 +124,41 @@ export const bookingController = {
     });
 
     console.log("AI response:", aiResponse);
+//     for (const step of aiResponse.steps ?? []) {
+//   console.log("Step", step.stepNumber, "content:", JSON.stringify(step.content, null, 2));
+// }
+
+for (const step of aiResponse.steps ?? []) {
+  for (const item of step.content ?? []) {
+    if (item.type === "tool-call") {
+      await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          role: "tool_call",
+          content: JSON.stringify({
+            toolCallId: item.toolCallId,
+            name: item.toolName,
+            input: item.input,
+          }),
+        },
+      });
+    }
+
+    if (item.type === "tool-result") {
+      await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          role: "tool_result",
+          content: JSON.stringify({
+            toolCallId: item.toolCallId,
+            name: item.toolName,
+            output: item.output,
+          }),
+        },
+      });
+    }
+  }
+}
 
     await prisma.message.create({
       data: {
