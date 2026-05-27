@@ -1,6 +1,7 @@
 import { bookingSystemPrompt } from "./prompt/systemPrompt.js";
 import { createBookingTool } from "./tools/createBookingTool.js";
 import { generateTimeslotsTool } from "./tools/generateSlotsTool.js";
+import { checkBookingStatusTool } from "./tools/checkBookingStatus.js";
 import { ToolLoopAgent } from "ai";
 // import { google } from "@ai-sdk/google";
 import { openai } from '@ai-sdk/openai';
@@ -19,6 +20,7 @@ export async function generateReply({
     tools: {
       create_booking: createBookingTool(business, customer),
       generate_time_slots: generateTimeslotsTool(business),
+      check_booking_status: checkBookingStatusTool(business, customer),
     }
   });
 
