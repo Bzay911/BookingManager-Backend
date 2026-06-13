@@ -10,8 +10,7 @@ import serviceRoutes from "./src/routes/service.routes.js";
 import bookingRoutes from "./src/routes/booking.routes.js";
 import paymentRoutes from "./src/routes/payment.routes.js";
 import queueRoutes from "./src/routes/queue.routes.js";
-
-// dotenv.config();
+import imagekitRoutes from "./src/routes/imagekit.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -32,10 +31,12 @@ app.use('/api/business', businessRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/liveQueue', queueRoutes);
+app.use('/api/imagekit', imagekitRoutes);
 
 app.get('/', (req, res) => {
   res.send('API running...');
 })
+
 
 const httpServer = createServer(app);
 initSocket(httpServer);

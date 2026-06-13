@@ -32,8 +32,7 @@ async function tokenBucketCheck(phoneNumber) {
 
   if (tokens < 1) {
     console.warn(
-      `[RateLimiter] BURST BLOCKED - ${phoneNumber} has ${tokens.toFixed(2)} tokens`,
-    );
+      `[RateLimiter] BURST BLOCKED - ${phoneNumber} has ${tokens.toFixed(2)} tokens`);
     return false;
   }
 
@@ -95,7 +94,7 @@ export async function rateLimiter(req, res, next) {
     if (!burstAllowed) {
       await twilioClient.messages.create({
         from: "whatsapp:+14155238886",
-        to: `whatsapp:${phone}`, // ✅ fixed — was customer.phoneNumber
+        to: `whatsapp:${phone}`, 
         body: "Please slow down! Send me a message in a few seconds.",
       });
       // return empty TwiML so Twilio doesn't retry the webhook
@@ -109,7 +108,7 @@ export async function rateLimiter(req, res, next) {
     if (!dailyAllowed) {
       await twilioClient.messages.create({
         from: "whatsapp:+14155238886",
-        to: `whatsapp:${phone}`, // ✅ fixed
+        to: `whatsapp:${phone}`,
         body: "You've reached your daily message limit. Please try again tomorrow.",
       });
       return res
@@ -118,7 +117,7 @@ export async function rateLimiter(req, res, next) {
     }
 
     console.log(
-      `[RateLimiter] ✅ ${phone} passed all checks — proceeding to controller`,
+      `[RateLimiter] ${phone} passed all checks — proceeding to controller`,
     );
     next();
   } catch (err) {

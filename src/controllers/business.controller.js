@@ -246,32 +246,37 @@ export const businessController = {
       res.status(500).json({ error: error.message });
     }
   },
-  // async getAvaliableSlots(req,res){
-  //   try{
+ 
+  async updateBusinessProfile(req, res) {
+    try{
+     const userId = req.user.id;
+     const business = await prisma.business.findUnique({
+       where: { ownerId: userId },
+     });
 
-  //     const userId = req.user.id;
-  //     const { serviceId } = req.params;
-  //   const business = await prisma.business.findUnique({
-  //     where: { ownerId: userId },
-  //     include: { services: true }
-  //   });
-  //     if (!business) {
-  //       console.log(`Business not found`);
-  //       return res.status(404).json({ error: "Business not found" });
-  //     }
-  //     console.log(`Fetched business`, business);
-  //     const service = business.services.find(s => s.id === parseInt(serviceId));
-  //     if (!service) {
-  //       console.log(`Service with ID ${serviceId} not found`);
-  //       return res.status(404).json({ error: "Service not found" });
-  //     }
-  //     const slots = generateSlots(business.openingTime, business.closingTime, service.durationMinutes);
-  //     // console.log(`Generated ${slots.length} slots for business ID ${id} on date ${date}`);
-  //     console.log("Sample slots:", slots);
-  //     res.status(200).json(slots);
-  //   }catch(error){
-  //     console.error(`Error fetching available slots for business ID ${req.params.id}:`, error);
-  //     res.status(500).json({ error: error.message });
-  //   }
-  // }
+     if (!business) {
+       return res.status(404).json({ error: "Business not found" });
+     }
+
+      const {
+        businessName,
+        businessAddress,
+        businessProfileImage
+      } = req.body;
+
+      const updatedBusiness = await prisma.business.update({
+        where: { id: business.id },
+        data: {
+          businessName,
+          businessAddress,
+          businessProfileImage
+        }
+      });
+      console.log(`Updated business with ID ${business.id}:`, updatedBusiness);
+      res.status(200).json(updatedBusiness);
+    } catch (error) {
+      console.error(`Error updating business with ID ${business.id}:`, error);
+      res.status(500).json({ error: error.message });
+    }
+  }
 };
