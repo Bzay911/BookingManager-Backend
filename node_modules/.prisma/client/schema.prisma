@@ -29,6 +29,7 @@ model Business {
   businessName           String
   description            String?
   businessProfileImage   String?
+  businessCoverImages    String[]
   businessAddress        String
   businessPhoneNumber    String
   businessEmail          String

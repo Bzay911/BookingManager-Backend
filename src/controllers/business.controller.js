@@ -261,7 +261,8 @@ export const businessController = {
       const {
         businessName,
         businessAddress,
-        businessProfileImage
+        businessProfileImage,
+        businessCoverImages
       } = req.body;
 
       const updatedBusiness = await prisma.business.update({
@@ -269,7 +270,8 @@ export const businessController = {
         data: {
           businessName,
           businessAddress,
-          businessProfileImage
+          businessProfileImage,
+          businessCoverImages,
         }
       });
       console.log(`Updated business with ID ${business.id}:`, updatedBusiness);
